@@ -16,42 +16,9 @@ import threading
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Ordre important : les entrées plus spécifiques DOIVENT être avant les génériques
-# (iphone 16 pro avant iphone 16, rolex submariner avant rolex, etc.)
+# (rolex submariner avant rolex, etc.)
 
 CATALOG = [
-    # ──────────── iPHONE ────────────
-    {'name': 'iphone 16 pro max', 'anchor': ['iphone'], 'required': ['16', 'pro', 'max'], 'min_hits': 3,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 16 pro'},
-    {'name': 'iphone 16 pro',  'anchor': ['iphone'], 'required': ['16', 'pro'], 'min_hits': 2,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 16 pro'},
-    {'name': 'iphone 16',      'anchor': ['iphone'], 'required': ['16'],        'min_hits': 1, 'exclude': ['pro','max'],
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 16'},
-    {'name': 'iphone 15 pro',  'anchor': ['iphone'], 'required': ['15', 'pro'], 'min_hits': 2,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 15 pro'},
-    {'name': 'iphone 15',      'anchor': ['iphone'], 'required': ['15'],        'min_hits': 1, 'exclude': ['pro'],
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 15'},
-    {'name': 'iphone 14 pro',  'anchor': ['iphone'], 'required': ['14', 'pro'], 'min_hits': 2,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 14 pro'},
-    {'name': 'iphone 14',      'anchor': ['iphone'], 'required': ['14'],        'min_hits': 1, 'exclude': ['pro'],
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 14'},
-    {'name': 'iphone 13 pro',  'anchor': ['iphone'], 'required': ['13', 'pro'], 'min_hits': 2,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 13 pro'},
-    {'name': 'iphone 13',      'anchor': ['iphone'], 'required': ['13'],        'min_hits': 1, 'exclude': ['pro'],
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 13'},
-    {'name': 'iphone 12',      'anchor': ['iphone'], 'required': ['12'],        'min_hits': 1, 'exclude': ['pro','mini'],
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 12'},
-    {'name': 'iphone 11',      'anchor': ['iphone'], 'required': ['11'],        'min_hits': 1,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 11'},
-    {'name': 'iphone xr',      'anchor': ['iphone'], 'required': ['xr'],        'min_hits': 1,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone xr'},
-    {'name': 'iphone xs',      'anchor': ['iphone'], 'required': ['xs'],        'min_hits': 1,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone xs'},
-    {'name': 'iphone se',      'anchor': ['iphone'], 'required': ['se'],        'min_hits': 1,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone se'},
-    # fallback iphone sans version : ref_price fixe bas
-    {'name': 'iphone',         'anchor': ['iphone'], 'required': [],            'min_hits': 0, 'exclude': [],
-     'ref_price': 200, 'category': '📱 Téléphones'},
-
     # ──────────── SAMSUNG ────────────
     {'name': 'samsung galaxy s24 ultra', 'anchor': ['samsung'], 'required': ['s24', 'ultra'], 'min_hits': 2,
      'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'samsung galaxy s24 ultra'},
@@ -104,7 +71,6 @@ CATALOG = [
     {'name': 'thermomix',     'anchor': ['thermomix'], 'required': [],      'min_hits': 0, 'exclude': ['tm6'], 'ref_price': 600, 'category': '🏠 Électroménager'},
 
     # ──────────── MONTRES ────────────
-    # ROLEX : anchor obligatoire = 'rolex' (mot unique, pas ambigu)
     {'name': 'rolex submariner', 'anchor': ['rolex'], 'required': ['submariner'], 'min_hits': 1, 'ref_price': 9000,  'category': '⌚ Montres'},
     {'name': 'rolex datejust',   'anchor': ['rolex'], 'required': ['datejust'],   'min_hits': 1, 'ref_price': 6500,  'category': '⌚ Montres'},
     {'name': 'rolex daytona',    'anchor': ['rolex'], 'required': ['daytona'],    'min_hits': 1, 'ref_price': 15000, 'category': '⌚ Montres'},
@@ -115,14 +81,12 @@ CATALOG = [
     {'name': 'tag heuer carrera','anchor': ['tag heuer'], 'required': ['carrera'],'min_hits': 1, 'ref_price': 1500,  'category': '⌚ Montres'},
     {'name': 'tag heuer',        'anchor': ['tag heuer'], 'required': [],         'min_hits': 0, 'ref_price': 1200,  'category': '⌚ Montres'},
     {'name': 'breitling',        'anchor': ['breitling'], 'required': [],         'min_hits': 0, 'ref_price': 2500,  'category': '⌚ Montres'},
-    # Seiko : anchor 'seiko' + au moins 1 modèle ou 'montre'
     {'name': 'seiko',            'anchor': ['seiko'], 'required': ['srpd','skx','presage','prospex','montre'], 'min_hits': 1, 'ref_price': 150, 'category': '⌚ Montres'},
     {'name': 'casio g-shock',    'anchor': ['g-shock','gshock'], 'required': [],  'min_hits': 0, 'ref_price': 80,   'category': '⌚ Montres'},
     {'name': 'apple watch ultra','anchor': ['apple watch'], 'required': ['ultra'],'min_hits': 1, 'ref_price': 650,  'category': '⌚ Montres'},
     {'name': 'apple watch',      'anchor': ['apple watch'], 'required': [],       'min_hits': 0, 'exclude': ['ultra'], 'ref_price': 280, 'category': '⌚ Montres'},
 
     # ──────────── PHOTO NICHE ────────────
-    # Leica : anchor 'leica' suffit (marque très spécifique)
     {'name': 'leica m6',  'anchor': ['leica'], 'required': ['m6'],  'min_hits': 1, 'ref_price': 2800, 'category': '📷 Photo Niche'},
     {'name': 'leica m3',  'anchor': ['leica'], 'required': ['m3'],  'min_hits': 1, 'ref_price': 1800, 'category': '📷 Photo Niche'},
     {'name': 'leica m4',  'anchor': ['leica'], 'required': ['m4'],  'min_hits': 1, 'ref_price': 1500, 'category': '📷 Photo Niche'},
@@ -131,29 +95,21 @@ CATALOG = [
     {'name': 'hasselblad','anchor': ['hasselblad'], 'required': [], 'min_hits': 0, 'ref_price': 2000, 'category': '📷 Photo Niche'},
     {'name': 'rolleiflex','anchor': ['rolleiflex'], 'required': [], 'min_hits': 0, 'ref_price': 600,  'category': '📷 Photo Niche'},
     {'name': 'rolleicord','anchor': ['rolleicord'], 'required': [], 'min_hits': 0, 'ref_price': 280,  'category': '📷 Photo Niche'},
-    # Contax : exige 'contax' + zeiss OU un modèle connu
     {'name': 'contax',    'anchor': ['contax'], 'required': ['zeiss','t2','g2','rts'], 'min_hits': 1, 'ref_price': 400, 'category': '📷 Photo Niche'},
     {'name': 'mamiya',    'anchor': ['mamiya'], 'required': ['rb67','rz67','645'], 'min_hits': 1, 'ref_price': 500, 'category': '📷 Photo Niche'},
-    # Nikon F2 : exige 'nikon' + 'f2' (pas juste 'nikon' qui est trop générique)
     {'name': 'nikon f2',  'anchor': ['nikon'], 'required': ['f2', 'argentique'], 'min_hits': 2, 'ref_price': 350, 'category': '📷 Photo Niche'},
     {'name': 'canon ae-1','anchor': ['canon'], 'required': ['ae-1','ae1'], 'min_hits': 1, 'ref_price': 180, 'category': '📷 Photo Niche'},
 
     # ──────────── HIFI VINTAGE ────────────
-    # B&O : anchor unique 'bang olufsen' ou 'beolab' etc.
     {'name': 'bang & olufsen beolab', 'anchor': ['beolab'],   'required': [],         'min_hits': 0, 'ref_price': 1200, 'category': '🔊 Audio Vintage'},
     {'name': 'bang & olufsen beoplay','anchor': ['beoplay'],  'required': [],         'min_hits': 0, 'ref_price': 300,  'category': '🔊 Audio Vintage'},
     {'name': 'bang & olufsen beosound','anchor': ['beosound'],'required': [],         'min_hits': 0, 'ref_price': 500,  'category': '🔊 Audio Vintage'},
     {'name': 'bang & olufsen',        'anchor': ['bang olufsen','bang & olufsen'], 'required': [], 'min_hits': 0, 'ref_price': 800, 'category': '🔊 Audio Vintage'},
-    # Marantz : anchor 'marantz' (marque unique) + ampli/receiver/hifi pour éviter jeu vidéo etc.
     {'name': 'marantz',  'anchor': ['marantz'], 'required': ['ampli','receiver','hifi','platine','cd'], 'min_hits': 1, 'ref_price': 400, 'category': '🔊 Audio Vintage'},
-    # McIntosh : on exige le nom complet 'mcintosh' (pas 'mc' seul)
     {'name': 'mcintosh', 'anchor': ['mcintosh'],'required': [],         'min_hits': 0, 'ref_price': 2000, 'category': '🔊 Audio Vintage'},
-    # Technics SL-1200 : anchor 'technics' + modèle sl-1200 ou sl1200
     {'name': 'technics sl-1200', 'anchor': ['technics'], 'required': ['sl-1200','sl1200'], 'min_hits': 1, 'ref_price': 900, 'category': '🔊 Audio Vintage'},
-    # Technics générique : exige 'technics' + 'platine' ou 'sl' + chiffre
     {'name': 'technics',         'anchor': ['technics'], 'required': ['platine', 'turntable'], 'min_hits': 1, 'ref_price': 300, 'category': '🔊 Audio Vintage'},
     {'name': 'sansui',   'anchor': ['sansui'],   'required': ['ampli','tuner','receiver'], 'min_hits': 1, 'ref_price': 350, 'category': '🔊 Audio Vintage'},
-    # Yamaha hifi : exige yamaha + ampli/receiver ET hifi (pas yamaha voiture ou yamaha moto)
     {'name': 'yamaha hifi', 'anchor': ['yamaha'], 'required': ['ampli','receiver','hifi'], 'min_hits': 2, 'ref_price': 250, 'category': '🔊 Audio Vintage', 'exclude': ['voiture','moto','scooter','deux roues']},
     {'name': 'naim audio',  'anchor': ['naim'],   'required': ['nait','cd','ampli','streamer'], 'min_hits': 1, 'ref_price': 1200, 'category': '🔊 Audio Vintage'},
     {'name': 'linn sondek', 'anchor': ['linn'],   'required': ['sondek','lp12'],              'min_hits': 1, 'ref_price': 1500, 'category': '🔊 Audio Vintage'},
@@ -167,7 +123,6 @@ CATALOG = [
     {'name': 'fender telecaster',  'anchor': ['fender'],'required': ['telecaster','tele'],    'min_hits': 1, 'ref_price': 1000, 'category': '🎸 Instruments'},
     {'name': 'martin guitar',      'anchor': ['martin'],'required': ['guitare','guitar','acoustique','d-28','d28'], 'min_hits': 1, 'ref_price': 1500, 'category': '🎸 Instruments'},
     {'name': 'selmer saxophone',   'anchor': ['selmer'],'required': ['saxophone','sax'],      'min_hits': 1, 'ref_price': 3000, 'category': '🎸 Instruments'},
-    # Synth : yamaha dx7 ou cs explicitement
     {'name': 'yamaha dx7',  'anchor': ['yamaha'], 'required': ['dx7'],               'min_hits': 1, 'ref_price': 600,  'category': '🎸 Instruments'},
     {'name': 'roland juno',  'anchor': ['roland'], 'required': ['juno'],             'min_hits': 1, 'ref_price': 800,  'category': '🎸 Instruments'},
     {'name': 'roland jupiter','anchor': ['roland'], 'required': ['jupiter'],         'min_hits': 1, 'ref_price': 1200, 'category': '🎸 Instruments'},
@@ -181,10 +136,8 @@ CATALOG = [
     {'name': 'charlotte perriand','anchor': ['charlotte perriand'],        'required': [], 'min_hits': 0, 'ref_price': 1200,'category': '🎨 Design Niche'},
 
     # ──────────── OUTDOOR PREMIUM ────────────
-    # arc'teryx : anchor multi-formes
     {'name': "arc'teryx alpha", 'anchor': ['arcteryx','arc teryx'], 'required': ['alpha','beta','atom','zeta'], 'min_hits': 1, 'ref_price': 600, 'category': '🧥 Outdoor Premium'},
     {'name': "arc'teryx",       'anchor': ['arcteryx','arc teryx'], 'required': [],  'min_hits': 0, 'ref_price': 400, 'category': '🧥 Outdoor Premium'},
-    # Patagonia : anchor + type de produit (pas juste 'patagonia' qui peut être un lieu)
     {'name': 'patagonia nano puff', 'anchor': ['patagonia'], 'required': ['nano puff','nano-puff'], 'min_hits': 1, 'ref_price': 200, 'category': '🧥 Outdoor Premium'},
     {'name': 'patagonia retro x',   'anchor': ['patagonia'], 'required': ['retro x','retro-x'],     'min_hits': 1, 'ref_price': 250, 'category': '🧥 Outdoor Premium'},
     {'name': 'patagonia',           'anchor': ['patagonia'], 'required': ['veste','doudoune','gilet','polaire','jacket'], 'min_hits': 1, 'ref_price': 180, 'category': '🧥 Outdoor Premium'},
@@ -321,12 +274,11 @@ def match_catalog(title, description=''):
     """
     text = _tokenize(title + ' ' + description)
     detected = []
-    seen_anchors = set()  # ancres déjà matchées (pour ne pas doubler iphone 16 + iphone)
+    seen_anchors = set()
 
     for entry in CATALOG:
         anchors = entry['anchor']
-        # Vérifie que l'anchor n'a pas déjà été capturé par un modèle plus spécifique
-        anchor_key = anchors[0]  # clé de famille = 1er anchor
+        anchor_key = anchors[0]
         if anchor_key in seen_anchors:
             continue
         if not _anchor_present(text, anchors):
@@ -339,7 +291,6 @@ def match_catalog(title, description=''):
         hits = _count_required(text, required)
         if hits < min_hits:
             continue
-        # Match validé
         ref_price = entry.get('ref_price', 0)
         bm_key = entry.get('bm_key')
         if bm_key:
@@ -362,10 +313,6 @@ def match_catalog(title, description=''):
 
 
 EMERGENCY_PRICES = {
-    'iphone 16 pro': 950, 'iphone 16': 720, 'iphone 15 pro': 820,
-    'iphone 15': 580, 'iphone 14 pro': 600, 'iphone 14': 430,
-    'iphone 13 pro': 350, 'iphone 13': 310, 'iphone 12': 210,
-    'iphone 11': 150, 'iphone xr': 110, 'iphone xs': 130, 'iphone se': 90,
     'samsung galaxy s24 ultra': 750, 'samsung galaxy s24': 580,
     'ps5': 380, 'xbox series x': 350, 'nintendo switch oled': 230, 'steam deck': 360,
     'macbook pro m3': 1600, 'macbook pro m2': 1200, 'macbook pro m1': 900,
@@ -601,10 +548,8 @@ class DealScraper:
             if not price:
                 continue
 
-            # 1. Détection catalogue strict
             detected_objects, is_lot = match_catalog(title, description)
 
-            # 2. Détection mobilier premium (sémantique visuelle)
             furniture_model, furniture_conf = detect_premium_furniture(title, description)
             kg_score = knowledge_gap_score(title, description, furniture_model)
             if furniture_model and furniture_conf >= 30:
@@ -656,7 +601,7 @@ class DealScraper:
     def auto_hunt(self, min_discount=50, platforms=None):
         if platforms is None: platforms = ['leboncoin', 'vinted', 'ebay']
         queries = [
-            'lot electronique', 'iphone occasion', 'montre collection',
+            'lot electronique', 'montre collection',
             'ampli hifi vintage', 'guitare electrique occasion',
             'leica appareil photo', 'chaise bureau ergonomique',
             'fauteuil ergonomique bureau', 'dyson aspirateur',
