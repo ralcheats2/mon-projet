@@ -1,225 +1,565 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deal Hunter 🔍</title>
+<title>Deal Hunter</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
   :root {
-    --bg: #0f0f13;
-    --surface: #16161e;
-    --surface2: #1e1e2a;
-    --border: rgba(255,255,255,0.07);
-    --text: #e8e8f0;
-    --text-muted: #8888a0;
-    --primary: #7c6af7;
-    --primary-hover: #6b58f0;
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --lbc: #F56B2A;
-    --vinted: #09B1BA;
+    --bg: #080810;
+    --surface: #0f0f1a;
+    --surface2: #161624;
+    --surface3: #1e1e30;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.12);
+    --text: #f0f0fa;
+    --text-muted: #7070a0;
+    --text-dim: #4a4a70;
+    --primary: #7c5cfc;
+    --primary-glow: rgba(124,92,252,0.25);
+    --success: #10d97c;
+    --warning: #ffb020;
+    --danger: #ff4560;
+    --lbc: #FF6A25;
+    --vinted: #00B8C4;
     --ebay: #E53238;
-    --radius: 12px;
-    --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    --r: 10px;
+    --r-lg: 16px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
-  
-  /* LAYOUT */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
+  }
+
+  /* ── LAYOUT ── */
   .app { display: flex; height: 100vh; overflow: hidden; }
-  .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
-  .main { flex: 1; overflow-y: auto; }
-  
-  /* SIDEBAR */
-  .logo { padding: 20px; border-bottom: 1px solid var(--border); }
-  .logo h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, var(--primary), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .logo span { font-size: 12px; color: var(--text-muted); }
-  
-  .sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
-  .sidebar-section label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
-  
-  input[type=text], input[type=range] { width: 100%; }
-  input[type=text] { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; outline: none; transition: border-color var(--transition); }
-  input[type=text]:focus { border-color: var(--primary); }
-  
-  .range-wrap { display: flex; align-items: center; gap: 10px; }
-  input[type=range] { accent-color: var(--primary); }
-  .range-val { font-size: 13px; font-weight: 600; color: var(--primary); min-width: 36px; text-align: right; }
-  
-  .platforms { display: flex; gap: 8px; flex-wrap: wrap; }
-  .platform-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 20px; border: 2px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 13px; font-weight: 500; transition: all var(--transition); }
-  .platform-btn.active { color: white; }
-  .platform-btn[data-p="leboncoin"].active { border-color: var(--lbc); background: rgba(245,107,42,0.15); color: var(--lbc); }
-  .platform-btn[data-p="vinted"].active { border-color: var(--vinted); background: rgba(9,177,186,0.15); color: var(--vinted); }
-  .platform-btn[data-p="ebay"].active { border-color: var(--ebay); background: rgba(229,50,56,0.15); color: var(--ebay); }
-  
-  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px; border-radius: var(--radius); border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all var(--transition); }
-  .btn-primary { background: var(--primary); color: white; }
-  .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
-  .btn-auto { background: linear-gradient(135deg, #f59e0b, #ef4444); color: white; margin-top: 8px; }
-  .btn-auto:hover { opacity: 0.9; transform: translateY(-1px); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
-  
-  /* MAIN */
-  .main-header { padding: 24px 28px 0; display: flex; align-items: center; justify-content: space-between; }
-  .stats-bar { display: flex; gap: 16px; padding: 16px 28px; border-bottom: 1px solid var(--border); }
-  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 18px; }
-  .stat-val { font-size: 22px; font-weight: 700; color: var(--primary); }
-  .stat-label { font-size: 11px; color: var(--text-muted); }
-  
-  .deals-grid { padding: 20px 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-  
-  /* CARD */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: transform var(--transition), box-shadow var(--transition); position: relative; }
-  .card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
-  
-  .card-badge { position: absolute; top: 10px; right: 10px; background: var(--danger); color: white; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
-  .card-badge.hot { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-  .card-badge.fire { background: linear-gradient(135deg, #ef4444, #7c3aed); animation: pulse 1.5s ease-in-out infinite; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface3) transparent;
+  }
+  .main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* ── SIDEBAR ── */
+  .logo {
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    background: linear-gradient(130deg, #a78bfa, var(--primary) 50%, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .logo-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; letter-spacing: 0.03em; }
+
+  .s-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .s-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  input[type=text] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input[type=text]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+  input[type=text]::placeholder { color: var(--text-dim); }
+
+  .quick-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .tag {
+    font-size: 11px;
+    padding: 4px 9px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tag:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); }
+
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  input[type=range] { flex: 1; accent-color: var(--primary); cursor: pointer; }
+  .range-val { font-size: 13px; font-weight: 700; color: var(--primary); min-width: 38px; text-align: right; }
+
+  .platform-row { display: flex; gap: 7px; }
+  .p-btn {
+    flex: 1;
+    padding: 7px 0;
+    border-radius: var(--r);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .p-btn.on[data-p=leboncoin] { border-color: var(--lbc); background: rgba(255,106,37,0.1); color: var(--lbc); }
+  .p-btn.on[data-p=vinted]    { border-color: var(--vinted); background: rgba(0,184,196,0.1); color: var(--vinted); }
+  .p-btn.on[data-p=ebay]      { border-color: var(--ebay); background: rgba(229,50,56,0.1); color: var(--ebay); }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: var(--r);
+    border: none;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition: all 0.15s;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-hunt { background: linear-gradient(135deg, var(--warning) 0%, var(--danger) 100%); color: #fff; margin-top: 7px; }
+  .btn-hunt:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+
+  /* ── MAIN HEADER ── */
+  .main-top {
+    padding: 20px 24px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .page-title { font-size: 16px; font-weight: 700; letter-spacing: -0.2px; }
+  .page-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  /* ── BARRE DE RECHERCHE TEXTE SUR RÉSULTATS ── */
+  .results-search-wrap {
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .results-search-inner {
+    position: relative;
+    max-width: 460px;
+  }
+  .results-search-inner input {
+    padding-left: 34px;
+  }
+  .results-search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 14px;
+    pointer-events: none;
+  }
+  .results-search-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    display: none;
+  }
+  .results-search-clear.visible { display: block; }
+
+  /* ── STATS ── */
+  .stats-row {
+    display: flex;
+    gap: 10px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 10px 16px;
+    min-width: 100px;
+  }
+  .stat-n { font-size: 20px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+  .stat-l { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 1px; }
+
+  /* ── FILTRES ── */
+  .filter-row {
+    display: flex;
+    gap: 6px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .chip {
+    white-space: nowrap;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .chip:hover:not(.on) { border-color: var(--primary); color: var(--primary); }
+
+  /* ── GRILLE CARDS ── */
+  .grid {
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 14px;
+    align-content: start;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+    cursor: default;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-hover);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  }
+  .card[data-unaware="true"] {
+    border-color: rgba(255,176,32,0.25);
+  }
+  .card[data-unaware="true"]:hover { border-color: rgba(255,176,32,0.45); }
+
+  /* badge remise */
+  .badge-discount {
+    position: absolute;
+    top: 10px; right: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(8px);
+    z-index: 2;
+  }
+  .badge-ok   { background: rgba(16,217,124,0.2); border: 1px solid rgba(16,217,124,0.4); color: var(--success); }
+  .badge-hot  { background: rgba(255,176,32,0.2); border: 1px solid rgba(255,176,32,0.4); color: var(--warning); }
+  .badge-fire { background: rgba(255,69,96,0.2); border: 1px solid rgba(255,69,96,0.4); color: var(--danger); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-  
-  .card-img { width: 100%; height: 180px; object-fit: cover; background: var(--surface2); }
-  .card-img-placeholder { width: 100%; height: 180px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 40px; }
-  
-  .card-body { padding: 14px; }
-  .card-platform { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; margin-bottom: 8px; }
-  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .card-match { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
-  .card-match strong { color: var(--primary); }
-  
-  .card-prices { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
-  .price-current { font-size: 22px; font-weight: 700; color: var(--success); }
-  .price-ref { font-size: 12px; color: var(--text-muted); text-decoration: line-through; }
-  .price-savings { font-size: 12px; font-weight: 600; color: var(--warning); }
-  
-  .deal-score-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
-  .deal-score-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
-  
-  .lot-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: var(--warning); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; margin-bottom: 8px; }
-  
-  .card-footer { display: flex; gap: 8px; }
-  .btn-link { flex: 1; padding: 9px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; text-align: center; border: 1px solid var(--border); color: var(--text); transition: all var(--transition); }
-  .btn-link:hover { background: var(--surface2); border-color: var(--primary); color: var(--primary); }
-  
-  /* STATES */
-  .empty-state { padding: 80px 28px; text-align: center; color: var(--text-muted); }
-  .empty-state .icon { font-size: 64px; margin-bottom: 16px; }
-  .empty-state h2 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
-  
-  .loading { padding: 80px 28px; text-align: center; }
-  .spinner { width: 40px; height: 40px; border: 3px solid var(--surface2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+
+  /* badge vendeur ignorant */
+  .badge-unaware {
+    position: absolute;
+    top: 10px; left: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(255,176,32,0.15);
+    border: 1px solid rgba(255,176,32,0.35);
+    color: var(--warning);
+    backdrop-filter: blur(8px);
+    z-index: 2;
+    letter-spacing: 0.02em;
+  }
+
+  .card-img {
+    width: 100%;
+    height: 170px;
+    object-fit: cover;
+    background: var(--surface2);
+    display: block;
+  }
+  .card-img-placeholder {
+    width: 100%; height: 170px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    color: var(--text-dim);
+  }
+
+  .card-body { padding: 13px 14px 14px; }
+
+  .plat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 5px;
+    margin-bottom: 8px;
+  }
+
+  .lot-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: rgba(255,176,32,0.1);
+    border: 1px solid rgba(255,176,32,0.25);
+    color: var(--warning);
+    margin-left: 5px;
+    margin-bottom: 8px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--text);
+  }
+  .card-match {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .card-match b { color: var(--primary); font-weight: 600; }
+
+  .prices-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 10px; }
+  .price-main { font-size: 21px; font-weight: 800; color: var(--success); letter-spacing: -0.5px; }
+  .price-right { text-align: right; }
+  .price-ref { font-size: 11px; color: var(--text-dim); text-decoration: line-through; }
+  .price-save { font-size: 12px; font-weight: 700; color: var(--warning); }
+
+  .score-bar { height: 3px; border-radius: 2px; background: var(--surface3); overflow: hidden; margin-bottom: 11px; }
+  .score-fill { height: 100%; border-radius: 2px; }
+
+  .card-link {
+    display: block;
+    text-align: center;
+    padding: 8px;
+    border-radius: var(--r);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .card-link:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); }
+
+  /* ── ÉTATS VIDES ── */
+  .empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .empty-icon { font-size: 56px; margin-bottom: 14px; opacity: 0.7; }
+  .empty h2 { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .empty p { font-size: 13px; max-width: 340px; line-height: 1.6; }
+
+  .spinner-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--surface3);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    margin-bottom: 14px;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
-  
-  .category-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-  .cat-tag { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: rgba(124,106,247,0.1); border: 1px solid rgba(124,106,247,0.2); color: var(--primary); cursor: pointer; transition: all var(--transition); }
-  .cat-tag:hover { background: rgba(124,106,247,0.2); }
-  
-  .filter-bar { padding: 12px 28px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
-  .filter-chip { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all var(--transition); }
-  .filter-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
-  
-  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; font-size: 14px; transform: translateY(80px); opacity: 0; transition: all 0.3s ease; z-index: 999; max-width: 320px; }
+  .spinner-msg { font-size: 13px; color: var(--text-muted); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border-hover);
+    border-radius: var(--r);
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    transform: translateY(60px);
+    opacity: 0;
+    transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+    z-index: 9999;
+    max-width: 300px;
+    pointer-events: none;
+  }
   .toast.show { transform: translateY(0); opacity: 1; }
-  
+
+  /* ── RESPONSIVE ── */
   @media (max-width: 768px) {
     .app { flex-direction: column; height: auto; }
     .sidebar { width: 100%; }
-    .deals-grid { grid-template-columns: 1fr; padding: 12px; }
-    .stats-bar { padding: 12px; }
-    .main-header { padding: 16px 12px 0; }
+    .main { overflow-y: unset; }
+    .grid { grid-template-columns: 1fr; padding: 12px; }
+    .stats-row { padding: 10px 12px; }
   }
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="app">
 
-  <!-- SIDEBAR -->
+  <!-- ━━━━━━ SIDEBAR ━━━━━━ -->
   <aside class="sidebar">
     <div class="logo">
-      <h1>🔍 Deal Hunter</h1>
-      <span>Chasseur de bonnes affaires</span>
+      <div class="logo-title">🔍 Deal Hunter</div>
+      <div class="logo-sub">Chasseur de bonnes affaires</div>
     </div>
-    
-    <div class="sidebar-section">
-      <label>🔎 Recherche</label>
-      <input type="text" id="searchInput" placeholder="ex: lot electronique, iphone..." />
-      <div class="category-tags" id="quickTags">
-        <span class="cat-tag" onclick="setSearch('lot electronique')">📦 Lots élec</span>
-        <span class="cat-tag" onclick="setSearch('iphone')">📱 iPhone</span>
-        <span class="cat-tag" onclick="setSearch('ps5')">🎮 PS5</span>
-        <span class="cat-tag" onclick="setSearch('montre rolex')">⌚ Montres</span>
-        <span class="cat-tag" onclick="setSearch('pokemon carte')">🃏 Pokémon</span>
-        <span class="cat-tag" onclick="setSearch('lego')">🧱 LEGO</span>
-        <span class="cat-tag" onclick="setSearch('jordan yeezy')">👟 Sneakers</span>
-        <span class="cat-tag" onclick="setSearch('dyson')">🌀 Dyson</span>
+
+    <div class="s-section">
+      <span class="s-label">Recherche</span>
+      <input type="text" id="searchInput" placeholder="ex: lot hifi, iphone, leica…" />
+      <div class="quick-tags">
+        <span class="tag" onclick="setQ('lot electronique')">📦 Lots élec</span>
+        <span class="tag" onclick="setQ('iphone occasion')">📱 iPhone</span>
+        <span class="tag" onclick="setQ('chaine hifi vintage')">🔊 Hifi</span>
+        <span class="tag" onclick="setQ('montre collection')">⌚ Montres</span>
+        <span class="tag" onclick="setQ('leica appareil')">📷 Leica</span>
+        <span class="tag" onclick="setQ('guitare electrique')">🎸 Guitare</span>
+        <span class="tag" onclick="setQ('patagonia veste')">🧥 Outdoor</span>
+        <span class="tag" onclick="setQ('dyson aspirateur')">🌀 Dyson</span>
+        <span class="tag" onclick="setQ('chaise bureau ergonomique')">🪑 Mobilier</span>
+        <span class="tag" onclick="setQ('lego boite')">🧱 LEGO</span>
       </div>
     </div>
-    
-    <div class="sidebar-section">
-      <label>💰 Remise minimale</label>
-      <div class="range-wrap">
+
+    <div class="s-section">
+      <span class="s-label">Remise minimale</span>
+      <div class="range-row">
         <input type="range" id="discountRange" min="10" max="90" value="40" oninput="updateRange(this)">
         <span class="range-val" id="discountVal">40%</span>
       </div>
     </div>
-    
-    <div class="sidebar-section">
-      <label>🌐 Plateformes</label>
-      <div class="platforms">
-        <button class="platform-btn active" data-p="leboncoin" onclick="togglePlatform(this)">🟠 LBC</button>
-        <button class="platform-btn active" data-p="vinted" onclick="togglePlatform(this)">🔵 Vinted</button>
-        <button class="platform-btn active" data-p="ebay" onclick="togglePlatform(this)">🔴 eBay</button>
+
+    <div class="s-section">
+      <span class="s-label">Plateformes</span>
+      <div class="platform-row">
+        <button class="p-btn on" data-p="leboncoin" onclick="toggleP(this)">LBC</button>
+        <button class="p-btn on" data-p="vinted" onclick="toggleP(this)">Vinted</button>
+        <button class="p-btn on" data-p="ebay" onclick="toggleP(this)">eBay</button>
       </div>
     </div>
-    
-    <div class="sidebar-section">
-      <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">🔍 Rechercher les deals</button>
-      <button class="btn btn-auto" id="autoBtn" onclick="doAutoHunt()">🎯 Auto-Hunt (IA)</button>
+
+    <div class="s-section">
+      <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">🔍 Rechercher</button>
+      <button class="btn btn-hunt" id="autoBtn" onclick="doAuto()">🎯 Auto-Hunt IA</button>
     </div>
-    
-    <div class="sidebar-section" style="margin-top:auto">
-      <div style="font-size:11px;color:var(--text-muted);line-height:1.6">
-        <strong style="color:var(--text)">💡 Comment ça marche ?</strong><br>
-        L'app détecte les objets de valeur même dans des lots ou quand le titre est vague. Elle compare au prix marché et calcule un score de bonne affaire.
-      </div>
+
+    <div class="s-section" style="margin-top:auto;border-bottom:none">
+      <p style="font-size:11px;color:var(--text-dim);line-height:1.7">
+        <strong style="color:var(--text-muted)">💡 Comment ça marche ?</strong><br>
+        Détecte les objets de valeur même dans des lots ou titres vagues (ex. Herman Miller vendu comme « chaise bureau »). Compare au prix marché et calcule un score de deal.
+      </p>
     </div>
   </aside>
 
-  <!-- MAIN -->
+  <!-- ━━━━━━ MAIN ━━━━━━ -->
   <main class="main">
-    <div class="main-header">
+    <div class="main-top">
       <div>
-        <h2 style="font-size:18px;font-weight:700" id="resultTitle">Prêt à chasser les deals</h2>
-        <p style="font-size:13px;color:var(--text-muted)" id="resultSub">Lance une recherche ou l'Auto-Hunt pour commencer</p>
+        <div class="page-title" id="pageTitle">Prêt à chasser</div>
+        <div class="page-sub" id="pageSub">Lance une recherche ou l'Auto-Hunt</div>
       </div>
     </div>
-    
-    <div class="stats-bar" id="statsBar" style="display:none">
-      <div class="stat"><div class="stat-val" id="statScanned">0</div><div class="stat-label">Annonces analysées</div></div>
-      <div class="stat"><div class="stat-val" id="statDeals">0</div><div class="stat-label">Deals trouvés</div></div>
-      <div class="stat"><div class="stat-val" id="statBest">-</div><div class="stat-label">Meilleure remise</div></div>
+
+    <!-- Barre de recherche sur les résultats -->
+    <div class="results-search-wrap" id="resultsSearchWrap" style="display:none">
+      <div class="results-search-inner">
+        <span class="results-search-icon">🔎</span>
+        <input type="text" id="resultsSearchInput" placeholder="Filtrer les résultats…" oninput="filterText(this.value)">
+        <button class="results-search-clear" id="resultsSearchClear" onclick="clearResultsSearch()">✕</button>
+      </div>
     </div>
-    
-    <div class="filter-bar" id="filterBar" style="display:none">
-      <span style="font-size:12px;color:var(--text-muted)">Filtrer :</span>
-      <button class="filter-chip active" onclick="filterCategory('all', this)">Tous</button>
-      <button class="filter-chip" onclick="filterCategory('📱 Téléphones', this)">📱 Téléphones</button>
-      <button class="filter-chip" onclick="filterCategory('💻 Ordinateurs', this)">💻 Ordi</button>
-      <button class="filter-chip" onclick="filterCategory('🎮 Gaming', this)">🎮 Gaming</button>
-      <button class="filter-chip" onclick="filterCategory('⌚ Montres', this)">⌚ Montres</button>
-      <button class="filter-chip" onclick="filterCategory('👜 Luxe/Mode', this)">👜 Luxe</button>
-      <button class="filter-chip" onclick="filterCategory('👟 Sneakers', this)">👟 Sneakers</button>
-      <button class="filter-chip" onclick="filterCategory('🃏 Cartes/Jeux', this)">🃏 Cartes</button>
+
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat-card"><div class="stat-n" id="sScanned">0</div><div class="stat-l">Analysées</div></div>
+      <div class="stat-card"><div class="stat-n" id="sDeals">0</div><div class="stat-l">Deals</div></div>
+      <div class="stat-card"><div class="stat-n" id="sBest">—</div><div class="stat-l">Top remise</div></div>
+      <div class="stat-card"><div class="stat-n" id="sUnaware">0</div><div class="stat-l">Vendeur naïf</div></div>
     </div>
-    
+
+    <div class="filter-row" id="filterRow" style="display:none">
+      <button class="chip on" onclick="filterCat('all',this)">Tous</button>
+      <button class="chip" onclick="filterCat('📱 Téléphones',this)">📱 Téléphones</button>
+      <button class="chip" onclick="filterCat('💻 Ordinateurs',this)">💻 Ordi</button>
+      <button class="chip" onclick="filterCat('🎮 Gaming',this)">🎮 Gaming</button>
+      <button class="chip" onclick="filterCat('⌚ Montres',this)">⌚ Montres</button>
+      <button class="chip" onclick="filterCat('📷 Photo Niche',this)">📷 Photo</button>
+      <button class="chip" onclick="filterCat('🔊 Audio Vintage',this)">🔊 Hifi</button>
+      <button class="chip" onclick="filterCat('🎸 Instruments',this)">🎸 Instrus</button>
+      <button class="chip" onclick="filterCat('🪑 Mobilier Premium',this)">🪑 Mobilier</button>
+      <button class="chip" onclick="filterCat('🎨 Design Niche',this)">🎨 Design</button>
+      <button class="chip" onclick="filterCat('🧥 Outdoor Premium',this)">🧥 Outdoor</button>
+      <button class="chip" onclick="filterCat('👜 Luxe/Mode',this)">👜 Luxe</button>
+    </div>
+
     <div id="content">
-      <div class="empty-state">
-        <div class="icon">🎯</div>
-        <h2>Aucune recherche en cours</h2>
-        <p>Entre un mot-clé ou utilise l'Auto-Hunt pour scanner automatiquement les meilleures catégories.</p>
+      <div class="empty">
+        <div class="empty-icon">🎯</div>
+        <h2>Aucune recherche</h2>
+        <p>Entre un mot-clé ou utilise l'Auto-Hunt pour scanner les niches les plus rentables.</p>
       </div>
     </div>
   </main>
@@ -229,172 +569,198 @@
 
 <script>
   let allDeals = [];
-  let activePlatforms = new Set(['leboncoin', 'vinted', 'ebay']);
+  let activeCat = 'all';
+  let activePlatforms = new Set(['leboncoin','vinted','ebay']);
 
-  function setSearch(val) {
-    document.getElementById('searchInput').value = val;
-  }
+  const $ = id => document.getElementById(id);
 
-  function updateRange(el) {
-    document.getElementById('discountVal').textContent = el.value + '%';
-  }
+  function setQ(v) { $('searchInput').value = v; }
+  function updateRange(el) { $('discountVal').textContent = el.value + '%'; }
 
-  function togglePlatform(btn) {
+  function toggleP(btn) {
     const p = btn.dataset.p;
     if (activePlatforms.has(p)) {
       if (activePlatforms.size === 1) return;
-      activePlatforms.delete(p);
-      btn.classList.remove('active');
+      activePlatforms.delete(p); btn.classList.remove('on');
     } else {
-      activePlatforms.add(p);
-      btn.classList.add('active');
+      activePlatforms.add(p); btn.classList.add('on');
     }
   }
 
-  function showLoading(msg) {
-    document.getElementById('content').innerHTML = `
-      <div class="loading">
-        <div class="spinner"></div>
-        <p style="color:var(--text-muted)">${msg}</p>
-      </div>`;
-    document.getElementById('statsBar').style.display = 'none';
-    document.getElementById('filterBar').style.display = 'none';
-    ['searchBtn','autoBtn'].forEach(id => document.getElementById(id).disabled = true);
+  function toast(msg, dur=3000) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), dur);
   }
 
-  function showToast(msg, duration=3000) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), duration);
+  function scoreColor(s) {
+    if (s >= 80) return 'linear-gradient(90deg,#ff4560,#7c5cfc)';
+    if (s >= 60) return 'linear-gradient(90deg,#ffb020,#ff4560)';
+    if (s >= 40) return 'linear-gradient(90deg,#10d97c,#ffb020)';
+    return '#10d97c';
   }
-
-  function getScoreColor(score) {
-    if (score >= 80) return 'linear-gradient(90deg, #ef4444, #7c3aed)';
-    if (score >= 60) return 'linear-gradient(90deg, #f59e0b, #ef4444)';
-    if (score >= 40) return 'linear-gradient(90deg, #22c55e, #f59e0b)';
-    return '#22c55e';
-  }
-
-  function getBadgeClass(score) {
-    if (score >= 80) return 'fire';
-    if (score >= 60) return 'hot';
-    return '';
+  function badgeClass(s) {
+    if (s >= 80) return 'badge-fire';
+    if (s >= 60) return 'badge-hot';
+    return 'badge-ok';
   }
 
   function renderDeals(deals) {
-    const grid = document.getElementById('content');
+    const c = $('content');
     if (!deals.length) {
-      grid.innerHTML = `<div class="empty-state"><div class="icon">😔</div><h2>Aucun deal trouvé</h2><p>Essaie de réduire la remise minimale ou change les mots-clés.</p></div>`;
+      c.innerHTML = '<div class="empty"><div class="empty-icon">😔</div><h2>Aucun deal</h2><p>Baisse la remise minimale ou change les mots-clés.</p></div>';
       return;
     }
-    grid.innerHTML = '<div class="deals-grid" id="dealsGrid"></div>';
-    const g = document.getElementById('dealsGrid');
+    let html = '<div class="grid" id="dealsGrid">';
     deals.forEach(d => {
-      const imgHtml = d.image
-        ? `<img class="card-img" src="${d.image}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-           <div class="card-img-placeholder" style="display:none">${d.category?.split(' ')[0] || '📦'}</div>`
-        : `<div class="card-img-placeholder">${d.category?.split(' ')[0] || '📦'}</div>`;
-      
-      const badgeClass = getBadgeClass(d.deal_score);
-      const lotBadge = d.is_lot ? '<span class="lot-badge">📦 LOT détecté</span>' : '';
-      const detected = d.detected_objects?.slice(0,3).map(o => o.name).join(', ') || d.best_match;
-      
-      g.innerHTML += `
-        <div class="card" data-category="${d.category}">
-          <span class="card-badge ${badgeClass}">-${d.discount_pct}%</span>
-          ${imgHtml}
-          <div class="card-body">
-            <span class="card-platform" style="background:${d.platform_color}22;color:${d.platform_color}">${d.platform}</span>
-            ${lotBadge}
-            <div class="card-title">${d.title}</div>
-            <div class="card-match">🎯 Détecté : <strong>${detected}</strong></div>
-            <div class="card-prices">
-              <div>
-                <div class="price-current">${d.price}€</div>
-                <div class="price-ref">Réf: ${d.ref_price}€</div>
-              </div>
-              <div class="price-savings">Économie ~${d.savings}€</div>
-            </div>
-            <div class="deal-score-bar">
-              <div class="deal-score-fill" style="width:${d.deal_score}%;background:${getScoreColor(d.deal_score)}"></div>
-            </div>
-            <div class="card-footer">
-              <a href="${d.link}" target="_blank" rel="noopener" class="btn-link">Voir l'annonce →</a>
-            </div>
-          </div>
-        </div>`;
+      const img = d.image
+        ? `<img class="card-img" src="${escH(d.image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+           <div class="card-img-placeholder" style="display:none">${d.category?.split(' ')[0]||'📦'}</div>`
+        : `<div class="card-img-placeholder">${d.category?.split(' ')[0]||'📦'}</div>`;
+      const score = d.final_opportunity_score ?? d.deal_score;
+      const unawareBadge = d.vendor_unaware ? '<span class="badge-unaware">🤷 Naïf</span>' : '';
+      const lotPill = d.is_lot ? '<span class="lot-pill">📦 LOT</span>' : '';
+      const detected = d.detected_objects?.slice(0,2).map(o=>o.name).join(', ') || d.best_match;
+      const furnitureLine = d.furniture_model ? `<div class="card-match">🪑 Probablement : <b>${d.furniture_model}</b> (${d.furniture_confidence}%)</div>` : '';
+      const kgLine = d.knowledge_gap_score >= 40 ? `<div class="card-match">🧩 Gap vendeur : <b>${d.knowledge_gap_score}/100</b></div>` : '';
+      html += `
+<div class="card" data-cat="${escH(d.category)}" data-title="${escH((d.title||'').toLowerCase())}" data-match="${escH(detected.toLowerCase())}" data-unaware="${d.vendor_unaware?'true':'false'}">
+  <span class="badge-discount ${badgeClass(d.deal_score)}">-${d.discount_pct}%</span>
+  ${unawareBadge}
+  ${img}
+  <div class="card-body">
+    <span class="plat-pill" style="background:${d.platform_color}18;color:${d.platform_color}">${d.platform}</span>${lotPill}
+    <div class="card-title">${escH(d.title)}</div>
+    <div class="card-match">🎯 Détecté : <b>${escH(detected)}</b></div>
+    ${furnitureLine}${kgLine}
+    <div class="prices-row">
+      <div class="price-main">${d.price}€</div>
+      <div class="price-right">
+        <div class="price-ref">Réf: ${d.ref_price}€</div>
+        <div class="price-save">−${d.savings}€</div>
+      </div>
+    </div>
+    <div class="score-bar"><div class="score-fill" style="width:${score}%;background:${scoreColor(score)}"></div></div>
+    <a href="${escH(d.link)}" target="_blank" rel="noopener" class="card-link">Voir l'annonce →</a>
+  </div>
+</div>`;
     });
+    html += '</div>';
+    c.innerHTML = html;
   }
 
-  function filterCategory(cat, btn) {
-    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    const filtered = cat === 'all' ? allDeals : allDeals.filter(d => d.category === cat);
-    renderDeals(filtered);
+  function escH(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function updateStats(data) {
-    document.getElementById('statScanned').textContent = data.total_scanned;
-    document.getElementById('statDeals').textContent = data.total_deals;
-    const best = data.deals[0];
-    document.getElementById('statBest').textContent = best ? `-${best.discount_pct}%` : '-';
-    document.getElementById('statsBar').style.display = 'flex';
-    document.getElementById('filterBar').style.display = 'flex';
+  function getFiltered() {
+    return activeCat === 'all' ? allDeals : allDeals.filter(d => d.category === activeCat);
+  }
+
+  function filterCat(cat, btn) {
+    activeCat = cat;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    btn.classList.add('on');
+    clearResultsSearch();
+    renderDeals(getFiltered());
+  }
+
+  function filterText(q) {
+    const clear = $('resultsSearchClear');
+    clear.classList.toggle('visible', q.length > 0);
+    const base = getFiltered();
+    if (!q) { renderDeals(base); return; }
+    const lq = q.toLowerCase();
+    renderDeals(base.filter(d =>
+      (d.title||'').toLowerCase().includes(lq) ||
+      (d.best_match||'').toLowerCase().includes(lq) ||
+      (d.category||'').toLowerCase().includes(lq) ||
+      (d.platform||'').toLowerCase().includes(lq)
+    ));
+  }
+
+  function clearResultsSearch() {
+    $('resultsSearchInput').value = '';
+    $('resultsSearchClear').classList.remove('visible');
+    renderDeals(getFiltered());
+  }
+
+  function showStats(data) {
+    $('sScanned').textContent = data.total_scanned;
+    $('sDeals').textContent = data.total_deals;
+    $('sBest').textContent = data.deals[0] ? `-${data.deals[0].discount_pct}%` : '—';
+    $('sUnaware').textContent = data.deals.filter(d => d.vendor_unaware).length;
+    $('statsRow').style.display = 'flex';
+    $('filterRow').style.display = 'flex';
+    $('resultsSearchWrap').style.display = 'block';
+  }
+
+  function showLoading(msg) {
+    $('content').innerHTML = `<div class="spinner-wrap"><div class="spinner"></div><div class="spinner-msg">${msg}</div></div>`;
+    $('statsRow').style.display = 'none';
+    $('filterRow').style.display = 'none';
+    $('resultsSearchWrap').style.display = 'none';
+    ['searchBtn','autoBtn'].forEach(id => $(id).disabled = true);
+  }
+
+  function doneLoading() {
+    ['searchBtn','autoBtn'].forEach(id => $(id).disabled = false);
   }
 
   async function doSearch() {
-    const kw = document.getElementById('searchInput').value.trim();
-    if (!kw) { showToast('⚠️ Entre un mot-clé de recherche'); return; }
-    const discount = parseInt(document.getElementById('discountRange').value);
-    showLoading(`🔍 Scraping en cours pour "${kw}"...`);
-    document.getElementById('resultTitle').textContent = `Recherche : "${kw}"`;
+    const kw = $('searchInput').value.trim();
+    if (!kw) { toast('⚠️ Entrez un mot-clé'); return; }
+    const discount = parseInt($('discountRange').value);
+    showLoading(`Scraping « ${kw} »…`);
+    $('pageTitle').textContent = `Recherche : « ${kw} »`;
     try {
-      const resp = await fetch('/api/search', {
+      const r = await fetch('/api/search', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type':'application/json'},
         body: JSON.stringify({keywords: kw, min_discount: discount, platforms: [...activePlatforms]})
       });
-      const data = await resp.json();
-      allDeals = data.deals;
-      document.getElementById('resultSub').textContent = `${data.total_deals} deals trouvés sur ${data.total_scanned} annonces`;
-      updateStats(data);
-      renderDeals(data.deals);
-      if (!data.deals.length) showToast('🤔 Aucun deal. Essaie de baisser la remise min.');
-      else showToast(`✅ ${data.total_deals} bonnes affaires trouvées !`);
+      const d = await r.json();
+      allDeals = d.deals;
+      activeCat = 'all';
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+      document.querySelector('.chip')?.classList.add('on');
+      $('pageSub').textContent = `${d.total_deals} deals sur ${d.total_scanned} annonces`;
+      showStats(d);
+      renderDeals(d.deals);
+      toast(d.total_deals ? `✅ ${d.total_deals} deals trouvés !` : '🤔 Aucun deal. Baisse la remise.');
     } catch(e) {
-      document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">❌</div><h2>Erreur de scraping</h2><p>Vérifie ta connexion internet.<br><small>${e.message}</small></p></div>`;
+      $('content').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><h2>Erreur</h2><p>${e.message}</p></div>`;
     }
-    ['searchBtn','autoBtn'].forEach(id => document.getElementById(id).disabled = false);
+    doneLoading();
   }
 
-  async function doAutoHunt() {
-    const discount = parseInt(document.getElementById('discountRange').value);
-    showLoading('🤖 Auto-Hunt en cours... Scan de toutes les catégories rentables (30-60s)');
-    document.getElementById('resultTitle').textContent = '🤖 Auto-Hunt IA';
-    document.getElementById('resultSub').textContent = 'Analyse multi-catégories en cours...';
+  async function doAuto() {
+    const discount = parseInt($('discountRange').value);
+    showLoading('🤖 Auto-Hunt… scan des niches rentables (30–90s)');
+    $('pageTitle').textContent = '🤖 Auto-Hunt IA';
+    $('pageSub').textContent = 'Analyse multi-niches en cours…';
     try {
-      const resp = await fetch('/api/auto_hunt', {
+      const r = await fetch('/api/auto_hunt', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type':'application/json'},
         body: JSON.stringify({min_discount: discount, platforms: [...activePlatforms]})
       });
-      const data = await resp.json();
-      allDeals = data.deals;
-      document.getElementById('resultSub').textContent = `${data.total_deals} deals auto-détectés sur ${data.total_scanned} annonces`;
-      updateStats(data);
-      renderDeals(data.deals);
-      if (!data.deals.length) showToast('🤔 Aucun deal auto. Essaie de baisser la remise min.');
-      else showToast(`🎯 Auto-Hunt : ${data.total_deals} deals repérés !`);
+      const d = await r.json();
+      allDeals = d.deals;
+      activeCat = 'all';
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+      document.querySelector('.chip')?.classList.add('on');
+      $('pageSub').textContent = `${d.total_deals} deals sur ${d.total_scanned} annonces`;
+      showStats(d);
+      renderDeals(d.deals);
+      toast(d.total_deals ? `🎯 ${d.total_deals} deals repérés !` : '🤔 Rien trouvé. Baisse la remise.');
     } catch(e) {
-      document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">❌</div><h2>Erreur Auto-Hunt</h2><p>${e.message}</p></div>`;
+      $('content').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><h2>Erreur Auto-Hunt</h2><p>${e.message}</p></div>`;
     }
-    ['searchBtn','autoBtn'].forEach(id => document.getElementById(id).disabled = false);
+    doneLoading();
   }
 
-  document.getElementById('searchInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doSearch();
-  });
+  $('searchInput').addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); });
+  $('resultsSearchInput')?.addEventListener('keydown', e => { if (e.key==='Escape') clearResultsSearch(); });
 </script>
 </body>
 </html>
