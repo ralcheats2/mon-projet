@@ -4,160 +4,228 @@ import re
 import time
 import random
 import threading
-from thefuzz import fuzz
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CATALOGUE BACKMARKET (électronique grand public)
+# MATCHING : règles strictes
+# Chaque entrée définit :
+#   anchor   : mot(s) OBLIGATOIRE(S) dans le texte (brand ou terme unique)
+#   required : au moins N de ces mots doivent être présents
+#   bonus    : mots qui affinent (modèle précis)
+#   exclude  : si l'un de ces mots est présent, on annule le match
+#   min_hits : nombre de mots "required" min pour valider
 # ─────────────────────────────────────────────────────────────────────────────
 
-BACKMARKET_CATALOG = {
-    'iphone 16 pro':        {'category': '📱 Téléphones', 'keywords': ['iphone', '16 pro', 'apple']},
-    'iphone 16':            {'category': '📱 Téléphones', 'keywords': ['iphone', '16', 'apple']},
-    'iphone 15 pro':        {'category': '📱 Téléphones', 'keywords': ['iphone', '15 pro', 'apple']},
-    'iphone 15':            {'category': '📱 Téléphones', 'keywords': ['iphone', '15', 'apple']},
-    'iphone 14 pro':        {'category': '📱 Téléphones', 'keywords': ['iphone', '14 pro', 'apple']},
-    'iphone 14':            {'category': '📱 Téléphones', 'keywords': ['iphone', '14', 'apple']},
-    'iphone 13 pro':        {'category': '📱 Téléphones', 'keywords': ['iphone', '13 pro', 'apple']},
-    'iphone 13':            {'category': '📱 Téléphones', 'keywords': ['iphone', '13', 'apple']},
-    'iphone 12':            {'category': '📱 Téléphones', 'keywords': ['iphone', '12', 'apple']},
-    'iphone 11':            {'category': '📱 Téléphones', 'keywords': ['iphone', '11', 'apple']},
-    'iphone xr':            {'category': '📱 Téléphones', 'keywords': ['iphone', 'xr', 'apple']},
-    'iphone xs':            {'category': '📱 Téléphones', 'keywords': ['iphone', 'xs', 'apple']},
-    'iphone x':             {'category': '📱 Téléphones', 'keywords': ['iphone', ' x ', 'apple']},
-    'iphone se':            {'category': '📱 Téléphones', 'keywords': ['iphone', 'se', 'apple']},
-    'samsung galaxy s24 ultra': {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's24', 'ultra']},
-    'samsung galaxy s24':   {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's24']},
-    'samsung galaxy s23':   {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's23']},
-    'samsung galaxy s22':   {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's22']},
-    'google pixel 8 pro':   {'category': '📱 Téléphones', 'keywords': ['pixel', '8 pro', 'google']},
-    'google pixel 8':       {'category': '📱 Téléphones', 'keywords': ['pixel', '8', 'google']},
-    'macbook pro m3':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'pro', 'm3', 'apple']},
-    'macbook pro m2':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'pro', 'm2', 'apple']},
-    'macbook pro m1':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'pro', 'm1', 'apple']},
-    'macbook air m2':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'air', 'm2', 'apple']},
-    'macbook air m1':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'air', 'm1', 'apple']},
-    'ipad pro':             {'category': '📱 Tablettes', 'keywords': ['ipad', 'pro', 'apple']},
-    'ipad air':             {'category': '📱 Tablettes', 'keywords': ['ipad', 'air', 'apple']},
-    'ps5':                  {'category': '🎮 Gaming', 'keywords': ['ps5', 'playstation 5', 'sony']},
-    'ps4 pro':              {'category': '🎮 Gaming', 'keywords': ['ps4 pro', 'playstation 4 pro']},
-    'xbox series x':        {'category': '🎮 Gaming', 'keywords': ['xbox', 'series x', 'microsoft']},
-    'nintendo switch oled': {'category': '🎮 Gaming', 'keywords': ['switch', 'oled', 'nintendo']},
-    'steam deck':           {'category': '🎮 Gaming', 'keywords': ['steam deck', 'valve']},
-    'airpods pro 2':        {'category': '🎧 Audio', 'keywords': ['airpods', 'pro 2', 'apple']},
-    'sony wh-1000xm5':      {'category': '🎧 Audio', 'keywords': ['sony', 'xm5', 'casque']},
-    'dyson v15':            {'category': '🏠 Électroménager', 'keywords': ['dyson', 'v15', 'aspirateur']},
-    'dyson v12':            {'category': '🏠 Électroménager', 'keywords': ['dyson', 'v12', 'aspirateur']},
-    'dyson airwrap':        {'category': '🏠 Électroménager', 'keywords': ['dyson', 'airwrap']},
-    'thermomix tm6':        {'category': '🏠 Électroménager', 'keywords': ['thermomix', 'tm6', 'vorwerk']},
-    'apple watch ultra':    {'category': '⌚ Montres', 'keywords': ['apple watch', 'ultra']},
-    'apple watch series 9': {'category': '⌚ Montres', 'keywords': ['apple watch', 'series 9']},
-}
+# Ordre important : les entrées plus spécifiques DOIVENT être avant les génériques
+# (iphone 16 pro avant iphone 16, rolex submariner avant rolex, etc.)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# NICHES PREMIUM — objets peu connus du grand public, valeur élevée chez connaisseurs
-# Stratégie : vendeur ne connaît pas → sous-prix → revente rapide
-# ─────────────────────────────────────────────────────────────────────────────
+CATALOG = [
+    # ──────────── iPHONE ────────────
+    {'name': 'iphone 16 pro max', 'anchor': ['iphone'], 'required': ['16', 'pro', 'max'], 'min_hits': 3,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 16 pro'},
+    {'name': 'iphone 16 pro',  'anchor': ['iphone'], 'required': ['16', 'pro'], 'min_hits': 2,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 16 pro'},
+    {'name': 'iphone 16',      'anchor': ['iphone'], 'required': ['16'],        'min_hits': 1, 'exclude': ['pro','max'],
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 16'},
+    {'name': 'iphone 15 pro',  'anchor': ['iphone'], 'required': ['15', 'pro'], 'min_hits': 2,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 15 pro'},
+    {'name': 'iphone 15',      'anchor': ['iphone'], 'required': ['15'],        'min_hits': 1, 'exclude': ['pro'],
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 15'},
+    {'name': 'iphone 14 pro',  'anchor': ['iphone'], 'required': ['14', 'pro'], 'min_hits': 2,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 14 pro'},
+    {'name': 'iphone 14',      'anchor': ['iphone'], 'required': ['14'],        'min_hits': 1, 'exclude': ['pro'],
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 14'},
+    {'name': 'iphone 13 pro',  'anchor': ['iphone'], 'required': ['13', 'pro'], 'min_hits': 2,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 13 pro'},
+    {'name': 'iphone 13',      'anchor': ['iphone'], 'required': ['13'],        'min_hits': 1, 'exclude': ['pro'],
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 13'},
+    {'name': 'iphone 12',      'anchor': ['iphone'], 'required': ['12'],        'min_hits': 1, 'exclude': ['pro','mini'],
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 12'},
+    {'name': 'iphone 11',      'anchor': ['iphone'], 'required': ['11'],        'min_hits': 1,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone 11'},
+    {'name': 'iphone xr',      'anchor': ['iphone'], 'required': ['xr'],        'min_hits': 1,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone xr'},
+    {'name': 'iphone xs',      'anchor': ['iphone'], 'required': ['xs'],        'min_hits': 1,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone xs'},
+    {'name': 'iphone se',      'anchor': ['iphone'], 'required': ['se'],        'min_hits': 1,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'iphone se'},
+    # fallback iphone sans version : ref_price fixe bas
+    {'name': 'iphone',         'anchor': ['iphone'], 'required': [],            'min_hits': 0, 'exclude': [],
+     'ref_price': 200, 'category': '📱 Téléphones'},
 
-FIXED_PRICES = {
-    # MONTRES — marché connaisseur
-    'rolex submariner':     {'ref_price': 9000,  'category': '⌚ Montres', 'keywords': ['rolex', 'submariner']},
-    'rolex datejust':       {'ref_price': 6500,  'category': '⌚ Montres', 'keywords': ['rolex', 'datejust']},
-    'rolex':                {'ref_price': 7000,  'category': '⌚ Montres', 'keywords': ['rolex', 'montre', 'oyster']},
-    'omega seamaster':      {'ref_price': 2800,  'category': '⌚ Montres', 'keywords': ['omega', 'seamaster']},
-    'omega speedmaster':    {'ref_price': 3500,  'category': '⌚ Montres', 'keywords': ['omega', 'speedmaster']},
-    'tag heuer':            {'ref_price': 1200,  'category': '⌚ Montres', 'keywords': ['tag heuer', 'carrera']},
-    'breitling':            {'ref_price': 2500,  'category': '⌚ Montres', 'keywords': ['breitling', 'navitimer']},
-    'seiko':                {'ref_price': 150,   'category': '⌚ Montres', 'keywords': ['seiko', 'srpd', 'skx']},
-    'casio g-shock':        {'ref_price': 80,    'category': '⌚ Montres', 'keywords': ['casio', 'g-shock', 'gshock']},
+    # ──────────── SAMSUNG ────────────
+    {'name': 'samsung galaxy s24 ultra', 'anchor': ['samsung'], 'required': ['s24', 'ultra'], 'min_hits': 2,
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'samsung galaxy s24 ultra'},
+    {'name': 'samsung galaxy s24',       'anchor': ['samsung'], 'required': ['s24'], 'min_hits': 1, 'exclude': ['ultra'],
+     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'samsung galaxy s24'},
+    {'name': 'samsung galaxy s23',       'anchor': ['samsung'], 'required': ['s23'], 'min_hits': 1,
+     'ref_price': 380, 'category': '📱 Téléphones'},
+    {'name': 'samsung galaxy s22',       'anchor': ['samsung'], 'required': ['s22'], 'min_hits': 1,
+     'ref_price': 280, 'category': '📱 Téléphones'},
 
-    # PHOTO — Leica inconnu des non-initiés, revente immédiate
-    'leica m6':             {'ref_price': 2800,  'category': '📷 Photo Niche', 'keywords': ['leica', 'm6', 'argentique']},
-    'leica m3':             {'ref_price': 1800,  'category': '📷 Photo Niche', 'keywords': ['leica', 'm3', 'argentique']},
-    'leica m':              {'ref_price': 2200,  'category': '📷 Photo Niche', 'keywords': ['leica', 'telemetrique', 'rangefinder']},
-    'leica':                {'ref_price': 1500,  'category': '📷 Photo Niche', 'keywords': ['leica', 'appareil']},
-    'hasselblad':           {'ref_price': 2000,  'category': '📷 Photo Niche', 'keywords': ['hasselblad', 'moyen format']},
-    'rolleiflex':           {'ref_price': 600,   'category': '📷 Photo Niche', 'keywords': ['rolleiflex', 'rollei', 'bi-objectif']},
-    'contax':               {'ref_price': 400,   'category': '📷 Photo Niche', 'keywords': ['contax', 'zeiss']},
-    'mamiya':               {'ref_price': 500,   'category': '📷 Photo Niche', 'keywords': ['mamiya', 'rb67', 'rz67']},
-    'nikon f2':             {'ref_price': 350,   'category': '📷 Photo Niche', 'keywords': ['nikon', 'f2', 'argentique']},
-    'canon ae-1':           {'ref_price': 180,   'category': '📷 Photo Niche', 'keywords': ['canon', 'ae-1', 'ae1', 'argentique']},
+    # ──────────── MACBOOK ────────────
+    {'name': 'macbook pro m3',  'anchor': ['macbook'], 'required': ['pro', 'm3'], 'min_hits': 2,
+     'ref_price': 0, 'category': '💻 Ordinateurs', 'bm_key': 'macbook pro m3'},
+    {'name': 'macbook pro m2',  'anchor': ['macbook'], 'required': ['pro', 'm2'], 'min_hits': 2,
+     'ref_price': 0, 'category': '💻 Ordinateurs', 'bm_key': 'macbook pro m2'},
+    {'name': 'macbook pro m1',  'anchor': ['macbook'], 'required': ['pro', 'm1'], 'min_hits': 2,
+     'ref_price': 0, 'category': '💻 Ordinateurs', 'bm_key': 'macbook pro m1'},
+    {'name': 'macbook air m2',  'anchor': ['macbook'], 'required': ['air', 'm2'], 'min_hits': 2,
+     'ref_price': 0, 'category': '💻 Ordinateurs', 'bm_key': 'macbook air m2'},
+    {'name': 'macbook air m1',  'anchor': ['macbook'], 'required': ['air', 'm1'], 'min_hits': 2,
+     'ref_price': 0, 'category': '💻 Ordinateurs', 'bm_key': 'macbook air m1'},
+    {'name': 'macbook',         'anchor': ['macbook'], 'required': [],           'min_hits': 0,
+     'ref_price': 500, 'category': '💻 Ordinateurs'},
 
-    # AUDIO VINTAGE — Bang & Olufsen, chaînes hifi, amplis
-    'bang olufsen':         {'ref_price': 800,   'category': '🔊 Audio Vintage', 'keywords': ['bang olufsen', 'b&o', 'beolab', 'beosound', 'beoplay']},
-    'bang olufsen beolit':  {'ref_price': 300,   'category': '🔊 Audio Vintage', 'keywords': ['beolit', 'b&o', 'bang olufsen']},
-    'marantz':              {'ref_price': 400,   'category': '🔊 Audio Vintage', 'keywords': ['marantz', 'ampli', 'hifi', 'receivers']},
-    'mcintosh':             {'ref_price': 2000,  'category': '🔊 Audio Vintage', 'keywords': ['mcintosh', 'ampli', 'mc']},
-    'technics sl-1200':     {'ref_price': 900,   'category': '🔊 Audio Vintage', 'keywords': ['technics', 'sl-1200', 'platine']},
-    'technics':             {'ref_price': 300,   'category': '🔊 Audio Vintage', 'keywords': ['technics', 'platine', 'vinyle', 'sl']},
-    'sansui':               {'ref_price': 350,   'category': '🔊 Audio Vintage', 'keywords': ['sansui', 'ampli', 'tuner']},
-    'yamaha hifi':          {'ref_price': 250,   'category': '🔊 Audio Vintage', 'keywords': ['yamaha', 'ampli', 'hifi', 'receiver']},
-    'naim audio':           {'ref_price': 1200,  'category': '🔊 Audio Vintage', 'keywords': ['naim', 'nait', 'cd player']},
-    'linn sondek':          {'ref_price': 1500,  'category': '🔊 Audio Vintage', 'keywords': ['linn', 'sondek', 'lp12', 'platine']},
+    # ──────────── iPad ────────────
+    {'name': 'ipad pro',   'anchor': ['ipad'], 'required': ['pro'],      'min_hits': 1, 'ref_price': 0, 'category': '📱 Tablettes', 'bm_key': 'ipad pro'},
+    {'name': 'ipad air',   'anchor': ['ipad'], 'required': ['air'],      'min_hits': 1, 'ref_price': 0, 'category': '📱 Tablettes', 'bm_key': 'ipad air'},
+    {'name': 'ipad',       'anchor': ['ipad'], 'required': [],           'min_hits': 0, 'ref_price': 250, 'category': '📱 Tablettes'},
 
-    # INSTRUMENTS — Gibson, Fender vintage
-    'gibson les paul':      {'ref_price': 2500,  'category': '🎸 Instruments', 'keywords': ['gibson', 'les paul', 'guitare']},
-    'gibson sg':            {'ref_price': 1500,  'category': '🎸 Instruments', 'keywords': ['gibson', 'sg', 'guitare']},
-    'gibson':               {'ref_price': 1800,  'category': '🎸 Instruments', 'keywords': ['gibson', 'guitare', 'electrique']},
-    'fender stratocaster':  {'ref_price': 1200,  'category': '🎸 Instruments', 'keywords': ['fender', 'stratocaster', 'strat']},
-    'fender telecaster':    {'ref_price': 1000,  'category': '🎸 Instruments', 'keywords': ['fender', 'telecaster', 'tele']},
-    'martin guitar':        {'ref_price': 1500,  'category': '🎸 Instruments', 'keywords': ['martin', 'guitare', 'acoustique', 'd-28']},
-    'selmer saxophone':     {'ref_price': 3000,  'category': '🎸 Instruments', 'keywords': ['selmer', 'saxophone', 'mark vi', 'super action']},
-    'yamaha synth':         {'ref_price': 600,   'category': '🎸 Instruments', 'keywords': ['yamaha', 'dx7', 'synthesizer', 'synthe', 'cs']},
-    'roland synth':         {'ref_price': 800,   'category': '🎸 Instruments', 'keywords': ['roland', 'juno', 'jupiter', 'synthe']},
+    # ──────────── GAMING ────────────
+    {'name': 'ps5',               'anchor': ['ps5'],          'required': [],           'min_hits': 0, 'ref_price': 0, 'category': '🎮 Gaming', 'bm_key': 'ps5'},
+    {'name': 'playstation 5',     'anchor': ['playstation 5'],'required': [],           'min_hits': 0, 'ref_price': 0, 'category': '🎮 Gaming', 'bm_key': 'ps5'},
+    {'name': 'ps4 pro',           'anchor': ['ps4'],          'required': ['pro'],      'min_hits': 1, 'ref_price': 120, 'category': '🎮 Gaming'},
+    {'name': 'xbox series x',     'anchor': ['xbox'],         'required': ['series x'], 'min_hits': 1, 'ref_price': 0, 'category': '🎮 Gaming', 'bm_key': 'xbox series x'},
+    {'name': 'nintendo switch oled','anchor': ['nintendo','switch oled'], 'required': ['oled'], 'min_hits': 1, 'ref_price': 0, 'category': '🎮 Gaming', 'bm_key': 'nintendo switch oled'},
+    {'name': 'nintendo switch',   'anchor': ['nintendo switch'],'required': [],         'min_hits': 0, 'exclude': ['oled'], 'ref_price': 180, 'category': '🎮 Gaming'},
+    {'name': 'steam deck',        'anchor': ['steam deck'],   'required': [],           'min_hits': 0, 'ref_price': 0, 'category': '🎮 Gaming', 'bm_key': 'steam deck'},
 
-    # DESIGN INDUSTRIEL — Braun, Dieter Rams (méconnu grand public, très cher chez collectionneurs)
-    'braun dieter rams':    {'ref_price': 600,   'category': '🎨 Design Niche', 'keywords': ['braun', 'dieter rams', 'design', 'calculator']},
-    'braun':                {'ref_price': 200,   'category': '🎨 Design Niche', 'keywords': ['braun', 'vintage', 'rasoir', 'radio']},
-    'artek alvar aalto':    {'ref_price': 800,   'category': '🎨 Design Niche', 'keywords': ['artek', 'alvar aalto', 'stool', 'tabouret', 'chaise aalto']},
-    'les arcs':             {'ref_price': 400,   'category': '🎨 Design Niche', 'keywords': ['charlotte perriand', 'les arcs', 'pierre jeanneret']},
-    'knoll tulip':          {'ref_price': 600,   'category': '🎨 Design Niche', 'keywords': ['knoll', 'tulip', 'saarinen', 'eero']},
-    'ercol':                {'ref_price': 350,   'category': '🎨 Design Niche', 'keywords': ['ercol', 'elm', 'windsor chair']},
-    'USM haller':           {'ref_price': 1500,  'category': '🎨 Design Niche', 'keywords': ['usm', 'haller', 'meuble modulaire', 'chrome boules']},
+    # ──────────── AUDIO APPLE ────────────
+    {'name': 'airpods pro',  'anchor': ['airpods'], 'required': ['pro'],     'min_hits': 1, 'ref_price': 180, 'category': '🎧 Audio'},
+    {'name': 'sony xm5',     'anchor': ['sony'],    'required': ['xm5'],    'min_hits': 1, 'ref_price': 230, 'category': '🎧 Audio'},
+    {'name': 'sony xm4',     'anchor': ['sony'],    'required': ['xm4'],    'min_hits': 1, 'ref_price': 160, 'category': '🎧 Audio'},
 
-    # MODE OUTDOOR — méconnu hors passionnés, revente garantie
-    'arc teryx':            {'ref_price': 500,   'category': '🧥 Outdoor Premium', 'keywords': ['arc teryx', 'arcteryx', 'alpha', 'beta sl']},
-    'patagonia':            {'ref_price': 200,   'category': '🧥 Outdoor Premium', 'keywords': ['patagonia', 'nano puff', 'down sweater', 'retro x']},
-    'stone island':         {'ref_price': 400,   'category': '🧥 Outdoor Premium', 'keywords': ['stone island', 'veste', 'manteau']},
-    'canada goose':         {'ref_price': 700,   'category': '🧥 Outdoor Premium', 'keywords': ['canada goose', 'expedition', 'chilliwack']},
-    'moncler':              {'ref_price': 900,   'category': '🧥 Outdoor Premium', 'keywords': ['moncler', 'doudoune', 'gilet']},
+    # ──────────── ÉLECTROMÉNAGER ────────────
+    {'name': 'dyson v15',     'anchor': ['dyson'], 'required': ['v15'],     'min_hits': 1, 'ref_price': 0, 'category': '🏠 Électroménager', 'bm_key': 'dyson v15'},
+    {'name': 'dyson v12',     'anchor': ['dyson'], 'required': ['v12'],     'min_hits': 1, 'ref_price': 0, 'category': '🏠 Électroménager', 'bm_key': 'dyson v12'},
+    {'name': 'dyson v11',     'anchor': ['dyson'], 'required': ['v11'],     'min_hits': 1, 'ref_price': 300, 'category': '🏠 Électroménager'},
+    {'name': 'dyson airwrap', 'anchor': ['dyson'], 'required': ['airwrap'], 'min_hits': 1, 'ref_price': 0, 'category': '🏠 Électroménager', 'bm_key': 'dyson airwrap'},
+    {'name': 'thermomix tm6', 'anchor': ['thermomix'], 'required': ['tm6'], 'min_hits': 1, 'ref_price': 900, 'category': '🏠 Électroménager'},
+    {'name': 'thermomix',     'anchor': ['thermomix'], 'required': [],      'min_hits': 0, 'exclude': ['tm6'], 'ref_price': 600, 'category': '🏠 Électroménager'},
 
-    # LUXE / MAROQUINERIE
-    'hermes birkin':        {'ref_price': 8000,  'category': '👜 Luxe/Mode', 'keywords': ['hermes', 'birkin']},
-    'hermes kelly':         {'ref_price': 6000,  'category': '👜 Luxe/Mode', 'keywords': ['hermes', 'kelly']},
-    'hermes':               {'ref_price': 3000,  'category': '👜 Luxe/Mode', 'keywords': ['hermes', 'sac']},
-    'chanel classic':       {'ref_price': 5000,  'category': '👜 Luxe/Mode', 'keywords': ['chanel', 'classic flap']},
-    'chanel':               {'ref_price': 2000,  'category': '👜 Luxe/Mode', 'keywords': ['chanel', 'sac', 'cc']},
-    'louis vuitton neverfull': {'ref_price': 900,'category': '👜 Luxe/Mode', 'keywords': ['louis vuitton', 'neverfull']},
-    'louis vuitton':        {'ref_price': 700,   'category': '👜 Luxe/Mode', 'keywords': ['louis vuitton', 'vuitton', 'lv']},
-    'dior':                 {'ref_price': 800,   'category': '👜 Luxe/Mode', 'keywords': ['dior', 'sac']},
-    'gucci':                {'ref_price': 500,   'category': '👜 Luxe/Mode', 'keywords': ['gucci', 'sac']},
+    # ──────────── MONTRES ────────────
+    # ROLEX : anchor obligatoire = 'rolex' (mot unique, pas ambigu)
+    {'name': 'rolex submariner', 'anchor': ['rolex'], 'required': ['submariner'], 'min_hits': 1, 'ref_price': 9000,  'category': '⌚ Montres'},
+    {'name': 'rolex datejust',   'anchor': ['rolex'], 'required': ['datejust'],   'min_hits': 1, 'ref_price': 6500,  'category': '⌚ Montres'},
+    {'name': 'rolex daytona',    'anchor': ['rolex'], 'required': ['daytona'],    'min_hits': 1, 'ref_price': 15000, 'category': '⌚ Montres'},
+    {'name': 'rolex',            'anchor': ['rolex'], 'required': [],             'min_hits': 0, 'ref_price': 7000,  'category': '⌚ Montres'},
+    {'name': 'omega seamaster',  'anchor': ['omega'], 'required': ['seamaster'],  'min_hits': 1, 'ref_price': 2800,  'category': '⌚ Montres'},
+    {'name': 'omega speedmaster','anchor': ['omega'], 'required': ['speedmaster'],'min_hits': 1, 'ref_price': 3500,  'category': '⌚ Montres'},
+    {'name': 'omega',            'anchor': ['omega'], 'required': ['montre'],     'min_hits': 1, 'ref_price': 2000,  'category': '⌚ Montres'},
+    {'name': 'tag heuer carrera','anchor': ['tag heuer'], 'required': ['carrera'],'min_hits': 1, 'ref_price': 1500,  'category': '⌚ Montres'},
+    {'name': 'tag heuer',        'anchor': ['tag heuer'], 'required': [],         'min_hits': 0, 'ref_price': 1200,  'category': '⌚ Montres'},
+    {'name': 'breitling',        'anchor': ['breitling'], 'required': [],         'min_hits': 0, 'ref_price': 2500,  'category': '⌚ Montres'},
+    # Seiko : anchor 'seiko' + au moins 1 modèle ou 'montre'
+    {'name': 'seiko',            'anchor': ['seiko'], 'required': ['srpd','skx','presage','prospex','montre'], 'min_hits': 1, 'ref_price': 150, 'category': '⌚ Montres'},
+    {'name': 'casio g-shock',    'anchor': ['g-shock','gshock'], 'required': [],  'min_hits': 0, 'ref_price': 80,   'category': '⌚ Montres'},
+    {'name': 'apple watch ultra','anchor': ['apple watch'], 'required': ['ultra'],'min_hits': 1, 'ref_price': 650,  'category': '⌚ Montres'},
+    {'name': 'apple watch',      'anchor': ['apple watch'], 'required': [],       'min_hits': 0, 'exclude': ['ultra'], 'ref_price': 280, 'category': '⌚ Montres'},
 
-    # SNEAKERS
-    'yeezy 350':            {'ref_price': 220,   'category': '👟 Sneakers', 'keywords': ['yeezy', '350', 'adidas']},
-    'jordan 1 retro':       {'ref_price': 170,   'category': '👟 Sneakers', 'keywords': ['jordan 1', 'air jordan', 'aj1']},
-    'jordan 4':             {'ref_price': 200,   'category': '👟 Sneakers', 'keywords': ['jordan 4', 'aj4']},
-    'nike dunk':            {'ref_price': 110,   'category': '👟 Sneakers', 'keywords': ['nike', 'dunk']},
+    # ──────────── PHOTO NICHE ────────────
+    # Leica : anchor 'leica' suffit (marque très spécifique)
+    {'name': 'leica m6',  'anchor': ['leica'], 'required': ['m6'],  'min_hits': 1, 'ref_price': 2800, 'category': '📷 Photo Niche'},
+    {'name': 'leica m3',  'anchor': ['leica'], 'required': ['m3'],  'min_hits': 1, 'ref_price': 1800, 'category': '📷 Photo Niche'},
+    {'name': 'leica m4',  'anchor': ['leica'], 'required': ['m4'],  'min_hits': 1, 'ref_price': 1500, 'category': '📷 Photo Niche'},
+    {'name': 'leica m2',  'anchor': ['leica'], 'required': ['m2'],  'min_hits': 1, 'ref_price': 1200, 'category': '📷 Photo Niche'},
+    {'name': 'leica',     'anchor': ['leica'], 'required': [],      'min_hits': 0, 'ref_price': 1500, 'category': '📷 Photo Niche'},
+    {'name': 'hasselblad','anchor': ['hasselblad'], 'required': [], 'min_hits': 0, 'ref_price': 2000, 'category': '📷 Photo Niche'},
+    {'name': 'rolleiflex','anchor': ['rolleiflex'], 'required': [], 'min_hits': 0, 'ref_price': 600,  'category': '📷 Photo Niche'},
+    {'name': 'rolleicord','anchor': ['rolleicord'], 'required': [], 'min_hits': 0, 'ref_price': 280,  'category': '📷 Photo Niche'},
+    # Contax : exige 'contax' + zeiss OU un modèle connu
+    {'name': 'contax',    'anchor': ['contax'], 'required': ['zeiss','t2','g2','rts'], 'min_hits': 1, 'ref_price': 400, 'category': '📷 Photo Niche'},
+    {'name': 'mamiya',    'anchor': ['mamiya'], 'required': ['rb67','rz67','645'], 'min_hits': 1, 'ref_price': 500, 'category': '📷 Photo Niche'},
+    # Nikon F2 : exige 'nikon' + 'f2' (pas juste 'nikon' qui est trop générique)
+    {'name': 'nikon f2',  'anchor': ['nikon'], 'required': ['f2', 'argentique'], 'min_hits': 2, 'ref_price': 350, 'category': '📷 Photo Niche'},
+    {'name': 'canon ae-1','anchor': ['canon'], 'required': ['ae-1','ae1'], 'min_hits': 1, 'ref_price': 180, 'category': '📷 Photo Niche'},
 
-    # LEGO sets recherchés
-    'lego technic':         {'ref_price': 180,   'category': '🧱 LEGO', 'keywords': ['lego', 'technic']},
-    'lego star wars':       {'ref_price': 200,   'category': '🧱 LEGO', 'keywords': ['lego', 'star wars']},
-    'lego creator':         {'ref_price': 150,   'category': '🧱 LEGO', 'keywords': ['lego', 'creator']},
-    'lego':                 {'ref_price': 100,   'category': '🧱 LEGO', 'keywords': ['lego', 'boite', 'set']},
+    # ──────────── HIFI VINTAGE ────────────
+    # B&O : anchor unique 'bang olufsen' ou 'beolab' etc.
+    {'name': 'bang & olufsen beolab', 'anchor': ['beolab'],   'required': [],         'min_hits': 0, 'ref_price': 1200, 'category': '🔊 Audio Vintage'},
+    {'name': 'bang & olufsen beoplay','anchor': ['beoplay'],  'required': [],         'min_hits': 0, 'ref_price': 300,  'category': '🔊 Audio Vintage'},
+    {'name': 'bang & olufsen beosound','anchor': ['beosound'],'required': [],         'min_hits': 0, 'ref_price': 500,  'category': '🔊 Audio Vintage'},
+    {'name': 'bang & olufsen',        'anchor': ['bang olufsen','bang & olufsen'], 'required': [], 'min_hits': 0, 'ref_price': 800, 'category': '🔊 Audio Vintage'},
+    # Marantz : anchor 'marantz' (marque unique) + ampli/receiver/hifi pour éviter jeu vidéo etc.
+    {'name': 'marantz',  'anchor': ['marantz'], 'required': ['ampli','receiver','hifi','platine','cd'], 'min_hits': 1, 'ref_price': 400, 'category': '🔊 Audio Vintage'},
+    # McIntosh : on exige le nom complet 'mcintosh' (pas 'mc' seul)
+    {'name': 'mcintosh', 'anchor': ['mcintosh'],'required': [],         'min_hits': 0, 'ref_price': 2000, 'category': '🔊 Audio Vintage'},
+    # Technics SL-1200 : anchor 'technics' + modèle sl-1200 ou sl1200
+    {'name': 'technics sl-1200', 'anchor': ['technics'], 'required': ['sl-1200','sl1200'], 'min_hits': 1, 'ref_price': 900, 'category': '🔊 Audio Vintage'},
+    # Technics générique : exige 'technics' + 'platine' ou 'sl' + chiffre
+    {'name': 'technics',         'anchor': ['technics'], 'required': ['platine', 'turntable'], 'min_hits': 1, 'ref_price': 300, 'category': '🔊 Audio Vintage'},
+    {'name': 'sansui',   'anchor': ['sansui'],   'required': ['ampli','tuner','receiver'], 'min_hits': 1, 'ref_price': 350, 'category': '🔊 Audio Vintage'},
+    # Yamaha hifi : exige yamaha + ampli/receiver ET hifi (pas yamaha voiture ou yamaha moto)
+    {'name': 'yamaha hifi', 'anchor': ['yamaha'], 'required': ['ampli','receiver','hifi'], 'min_hits': 2, 'ref_price': 250, 'category': '🔊 Audio Vintage', 'exclude': ['voiture','moto','scooter','deux roues']},
+    {'name': 'naim audio',  'anchor': ['naim'],   'required': ['nait','cd','ampli','streamer'], 'min_hits': 1, 'ref_price': 1200, 'category': '🔊 Audio Vintage'},
+    {'name': 'linn sondek', 'anchor': ['linn'],   'required': ['sondek','lp12'],              'min_hits': 1, 'ref_price': 1500, 'category': '🔊 Audio Vintage'},
 
-    # VINYLES
-    'vinyle':               {'ref_price': 40,    'category': '🎵 Vinyles', 'keywords': ['vinyle', 'vinyl', 'disque', '33t']},
-}
+    # ──────────── INSTRUMENTS ────────────
+    {'name': 'gibson les paul', 'anchor': ['gibson'],  'required': ['les paul'],     'min_hits': 1, 'ref_price': 2500, 'category': '🎸 Instruments'},
+    {'name': 'gibson sg',       'anchor': ['gibson'],  'required': ['sg'],            'min_hits': 1, 'ref_price': 1500, 'category': '🎸 Instruments'},
+    {'name': 'gibson es',       'anchor': ['gibson'],  'required': ['es-335','es335','es-175'], 'min_hits': 1, 'ref_price': 2000, 'category': '🎸 Instruments'},
+    {'name': 'gibson',          'anchor': ['gibson'],  'required': ['guitare','guitar'], 'min_hits': 1, 'ref_price': 1800, 'category': '🎸 Instruments'},
+    {'name': 'fender stratocaster','anchor': ['fender'],'required': ['stratocaster','strat'], 'min_hits': 1, 'ref_price': 1200, 'category': '🎸 Instruments'},
+    {'name': 'fender telecaster',  'anchor': ['fender'],'required': ['telecaster','tele'],    'min_hits': 1, 'ref_price': 1000, 'category': '🎸 Instruments'},
+    {'name': 'martin guitar',      'anchor': ['martin'],'required': ['guitare','guitar','acoustique','d-28','d28'], 'min_hits': 1, 'ref_price': 1500, 'category': '🎸 Instruments'},
+    {'name': 'selmer saxophone',   'anchor': ['selmer'],'required': ['saxophone','sax'],      'min_hits': 1, 'ref_price': 3000, 'category': '🎸 Instruments'},
+    # Synth : yamaha dx7 ou cs explicitement
+    {'name': 'yamaha dx7',  'anchor': ['yamaha'], 'required': ['dx7'],               'min_hits': 1, 'ref_price': 600,  'category': '🎸 Instruments'},
+    {'name': 'roland juno',  'anchor': ['roland'], 'required': ['juno'],             'min_hits': 1, 'ref_price': 800,  'category': '🎸 Instruments'},
+    {'name': 'roland jupiter','anchor': ['roland'], 'required': ['jupiter'],         'min_hits': 1, 'ref_price': 1200, 'category': '🎸 Instruments'},
 
-LOT_TRIGGER_WORDS = [
-    'lot', 'ensemble', 'vrac', 'collection', 'boite', 'caisse',
-    'sac', 'divers', 'melange', 'assortiment', 'carton', 'palette'
+    # ──────────── DESIGN NICHE ────────────
+    {'name': 'braun dieter rams','anchor': ['braun'], 'required': ['dieter rams','calculator','calculatrice','rasoir vintage','radio vintage'], 'min_hits': 1, 'ref_price': 600, 'category': '🎨 Design Niche'},
+    {'name': 'braun vintage',    'anchor': ['braun'], 'required': ['vintage'],         'min_hits': 1, 'ref_price': 150, 'category': '🎨 Design Niche'},
+    {'name': 'usm haller',       'anchor': ['usm haller','usm modulaire'], 'required': [], 'min_hits': 0, 'ref_price': 1500, 'category': '🎨 Design Niche'},
+    {'name': 'knoll saarinen',   'anchor': ['saarinen','knoll tulip'],     'required': [], 'min_hits': 0, 'ref_price': 600, 'category': '🎨 Design Niche'},
+    {'name': 'artek aalto',      'anchor': ['artek','alvar aalto'],        'required': [], 'min_hits': 0, 'ref_price': 800, 'category': '🎨 Design Niche'},
+    {'name': 'charlotte perriand','anchor': ['charlotte perriand'],        'required': [], 'min_hits': 0, 'ref_price': 1200,'category': '🎨 Design Niche'},
+
+    # ──────────── OUTDOOR PREMIUM ────────────
+    # arc'teryx : anchor multi-formes
+    {'name': "arc'teryx alpha", 'anchor': ['arcteryx','arc teryx'], 'required': ['alpha','beta','atom','zeta'], 'min_hits': 1, 'ref_price': 600, 'category': '🧥 Outdoor Premium'},
+    {'name': "arc'teryx",       'anchor': ['arcteryx','arc teryx'], 'required': [],  'min_hits': 0, 'ref_price': 400, 'category': '🧥 Outdoor Premium'},
+    # Patagonia : anchor + type de produit (pas juste 'patagonia' qui peut être un lieu)
+    {'name': 'patagonia nano puff', 'anchor': ['patagonia'], 'required': ['nano puff','nano-puff'], 'min_hits': 1, 'ref_price': 200, 'category': '🧥 Outdoor Premium'},
+    {'name': 'patagonia retro x',   'anchor': ['patagonia'], 'required': ['retro x','retro-x'],     'min_hits': 1, 'ref_price': 250, 'category': '🧥 Outdoor Premium'},
+    {'name': 'patagonia',           'anchor': ['patagonia'], 'required': ['veste','doudoune','gilet','polaire','jacket'], 'min_hits': 1, 'ref_price': 180, 'category': '🧥 Outdoor Premium'},
+    {'name': 'stone island',    'anchor': ['stone island'], 'required': [],  'min_hits': 0, 'ref_price': 400, 'category': '🧥 Outdoor Premium'},
+    {'name': 'canada goose',    'anchor': ['canada goose'], 'required': [],  'min_hits': 0, 'ref_price': 700, 'category': '🧥 Outdoor Premium'},
+    {'name': 'moncler',         'anchor': ['moncler'],      'required': ['doudoune','veste','gilet'], 'min_hits': 1, 'ref_price': 900, 'category': '🧥 Outdoor Premium'},
+
+    # ──────────── LUXE / MAROQUINERIE ────────────
+    {'name': 'hermes birkin',    'anchor': ['hermes','hermès'], 'required': ['birkin'],       'min_hits': 1, 'ref_price': 8000, 'category': '👜 Luxe/Mode'},
+    {'name': 'hermes kelly',     'anchor': ['hermes','hermès'], 'required': ['kelly'],        'min_hits': 1, 'ref_price': 6000, 'category': '👜 Luxe/Mode'},
+    {'name': 'hermes',           'anchor': ['hermes','hermès'], 'required': ['sac','pochette','ceinture','foulard'], 'min_hits': 1, 'ref_price': 3000, 'category': '👜 Luxe/Mode'},
+    {'name': 'chanel classic',   'anchor': ['chanel'],  'required': ['classic flap','2.55'], 'min_hits': 1, 'ref_price': 5000, 'category': '👜 Luxe/Mode'},
+    {'name': 'chanel',           'anchor': ['chanel'],  'required': ['sac','pochette'],      'min_hits': 1, 'ref_price': 2000, 'category': '👜 Luxe/Mode'},
+    {'name': 'louis vuitton neverfull','anchor': ['louis vuitton','vuitton'], 'required': ['neverfull'], 'min_hits': 1, 'ref_price': 900, 'category': '👜 Luxe/Mode'},
+    {'name': 'louis vuitton',    'anchor': ['louis vuitton','vuitton'], 'required': ['sac','pochette','portefeuille'], 'min_hits': 1, 'ref_price': 700, 'category': '👜 Luxe/Mode'},
+    {'name': 'dior',             'anchor': ['dior'],    'required': ['sac','pochette'],      'min_hits': 1, 'ref_price': 800, 'category': '👜 Luxe/Mode'},
+    {'name': 'gucci',            'anchor': ['gucci'],   'required': ['sac','pochette','ceinture'], 'min_hits': 1, 'ref_price': 500, 'category': '👜 Luxe/Mode'},
+
+    # ──────────── SNEAKERS ────────────
+    {'name': 'yeezy 350',      'anchor': ['yeezy'],   'required': ['350'],              'min_hits': 1, 'ref_price': 220, 'category': '👟 Sneakers'},
+    {'name': 'jordan 1',       'anchor': ['jordan 1','air jordan 1','aj1'], 'required': [], 'min_hits': 0, 'ref_price': 170, 'category': '👟 Sneakers'},
+    {'name': 'jordan 4',       'anchor': ['jordan 4','air jordan 4','aj4'], 'required': [], 'min_hits': 0, 'ref_price': 200, 'category': '👟 Sneakers'},
+    {'name': 'nike dunk',      'anchor': ['nike dunk'],   'required': [],               'min_hits': 0, 'ref_price': 110, 'category': '👟 Sneakers'},
+
+    # ──────────── LEGO ────────────
+    {'name': 'lego technic',   'anchor': ['lego'], 'required': ['technic'],    'min_hits': 1, 'ref_price': 180, 'category': '🧱 LEGO'},
+    {'name': 'lego star wars', 'anchor': ['lego'], 'required': ['star wars'],  'min_hits': 1, 'ref_price': 200, 'category': '🧱 LEGO'},
+    {'name': 'lego creator',   'anchor': ['lego'], 'required': ['creator'],    'min_hits': 1, 'ref_price': 150, 'category': '🧱 LEGO'},
+    {'name': 'lego',           'anchor': ['lego'], 'required': ['boite','set','complet'], 'min_hits': 1, 'ref_price': 80, 'category': '🧱 LEGO'},
 ]
+
+# Index BackMarket pour les produits à prix live
+BM_KEYS = {e['name']: e['bm_key'] for e in CATALOG if 'bm_key' in e}
+
+LOT_TRIGGER_WORDS = ['lot', 'ensemble', 'vrac', 'collection', 'caisse', 'divers',
+                     'melange', 'assortiment', 'carton', 'palette']
 
 HEADERS_POOL = [
     {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'},
     {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0'},
     {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15'},
-    {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'},
 ]
 
 _bm_price_cache = {}
@@ -171,74 +239,148 @@ BM_CACHE_TTL    = 6 * 3600
 # ─────────────────────────────────────────────────────────────────────────────
 
 GENERIC_TITLES = [
-    'chaise bureau', 'fauteuil bureau', 'siege bureau', 'chaise',
-    'fauteuil', 'chaise ergonomique', 'chaise filet', 'chaise mesh',
-    'siege ergonomique', 'chaise de travail', 'chaise gaming'
+    'chaise bureau', 'fauteuil bureau', 'siege bureau', 'chaise ergonomique',
+    'chaise filet', 'chaise mesh', 'siege ergonomique', 'chaise gaming'
 ]
-
 UNCERTAIN_PHRASES = [
-    'je ne connais pas la marque', 'je ne sais pas', 'sans marque',
-    'recuperation', 'debarras', 'vide bureau', 'provenance bureau',
-    'ancien materiel', 'lot mobilier', 'trouve', 'succession',
-    'pas la marque', 'marque inconnue', 'open space', 'liquidation',
-    'vide local', 'ca appartenait', 'appartenait a mon entreprise'
+    'je ne connais pas la marque', 'sans marque', 'recuperation', 'debarras',
+    'vide bureau', 'ancien materiel', 'lot mobilier', 'succession',
+    'marque inconnue', 'open space', 'liquidation', 'vide local'
 ]
 
 PREMIUM_FURNITURE = {
     'herman miller aeron': {
-        'brand': 'herman miller',
-        'category': '🪑 Mobilier Premium',
-        'market_price': 600,
-        'strong_features': ['posturefit', 'posturefit sl', 'pellicle', 'aeron', 'taille b', 'taille c', 'taille a', 'support lombaire reglable', '8z pellicle'],
-        'shape_features': ['maille', 'mesh', 'filet', 'molette inclinaison', 'accoudoirs reglables', 'dossier filet']
+        'brand': 'herman miller', 'category': '🪑 Mobilier Premium', 'market_price': 600,
+        'strong_features': ['posturefit', 'pellicle', 'aeron', '8z pellicle', 'posturefit sl'],
+        'shape_features': ['maille', 'mesh', 'filet', 'molette inclinaison', 'accoudoirs reglables']
     },
     'herman miller embody': {
-        'brand': 'herman miller',
-        'category': '🪑 Mobilier Premium',
-        'market_price': 900,
-        'strong_features': ['embody', 'backfit', 'pixelated support', 'herman miller'],
-        'shape_features': ['colonne centrale', 'dossier etroit en haut', 'ribs', 'assise multicouche']
+        'brand': 'herman miller', 'category': '🪑 Mobilier Premium', 'market_price': 900,
+        'strong_features': ['embody', 'backfit', 'herman miller'],
+        'shape_features': ['colonne centrale', 'ribs', 'assise multicouche']
     },
     'herman miller mirra': {
-        'brand': 'herman miller',
-        'category': '🪑 Mobilier Premium',
-        'market_price': 300,
-        'strong_features': ['mirra', 'herman miller', 'inclinaison avant'],
-        'shape_features': ['dossier plastique perfore', 'dossier ventile', 'assise mesh suspendue']
+        'brand': 'herman miller', 'category': '🪑 Mobilier Premium', 'market_price': 300,
+        'strong_features': ['mirra', 'herman miller'],
+        'shape_features': ['dossier plastique perfore', 'dossier ventile']
     },
     'steelcase leap': {
-        'brand': 'steelcase',
-        'category': '🪑 Mobilier Premium',
-        'market_price': 500,
+        'brand': 'steelcase', 'category': '🪑 Mobilier Premium', 'market_price': 500,
         'strong_features': ['steelcase', 'leap', 'liveback', 'natural glide'],
-        'shape_features': ['dossier flexible', 'soutien lombaire automatique', 'accoudoirs 4d']
+        'shape_features': ['dossier flexible', 'accoudoirs 4d']
     },
     'steelcase gesture': {
-        'brand': 'steelcase',
-        'category': '🪑 Mobilier Premium',
-        'market_price': 600,
-        'strong_features': ['steelcase', 'gesture', '360 arm'],
-        'shape_features': ['accoudoirs 360', 'support tablette', 'accoudoirs pivotants']
+        'brand': 'steelcase', 'category': '🪑 Mobilier Premium', 'market_price': 600,
+        'strong_features': ['steelcase', 'gesture'],
+        'shape_features': ['accoudoirs 360', 'accoudoirs pivotants']
     },
     'humanscale freedom': {
-        'brand': 'humanscale',
-        'category': '🪑 Mobilier Premium',
-        'market_price': 650,
+        'brand': 'humanscale', 'category': '🪑 Mobilier Premium', 'market_price': 650,
         'strong_features': ['humanscale', 'freedom'],
-        'shape_features': ['appuie-tete integre', 'inclinaison automatique', 'reglage automatique']
+        'shape_features': ['appuie-tete integre', 'inclinaison automatique']
     },
     'vitra eames': {
-        'brand': 'vitra',
-        'category': '🪑 Mobilier Premium',
-        'market_price': 900,
+        'brand': 'vitra', 'category': '🪑 Mobilier Premium', 'market_price': 900,
         'strong_features': ['vitra', 'eames', 'lounge chair', 'daw', 'dsx'],
-        'shape_features': ['coque plastique', 'pied tour eiffel', 'design annees 50']
+        'shape_features': ['coque plastique', 'pied tour eiffel']
     },
 }
 
 
+def _tokenize(text):
+    """Retourne le texte minuscule normalisé (accents basiques retirés)."""
+    t = text.lower()
+    for a, b in [('é','é'),('à','a'),('è','e'),('ê','e'),('ô','o'),('û','u'),('ü','u')]:
+        t = t.replace(a, b)
+    return t
+
+
+def _anchor_present(text, anchors):
+    """Vérifie qu'AU MOINS UN anchor est présent dans le texte."""
+    return any(a in text for a in anchors)
+
+
+def _count_required(text, required):
+    return sum(1 for r in required if r in text)
+
+
+def _exclude_hit(text, excludes):
+    return any(e in text for e in (excludes or []))
+
+
+def match_catalog(title, description=''):
+    """
+    Retourne la liste des objets détectés avec leur prix de référence.
+    Logique :
+      1. Pour chaque entrée CATALOG (ordre = spécifique → générique) :
+         - anchor obligatoire présent
+         - required count >= min_hits
+         - aucun mot d'exclusion
+      2. Dès qu'un match plus spécifique est trouvé pour une famille,
+         on ne remonte pas le fallback générique (flag seen_anchor).
+    """
+    text = _tokenize(title + ' ' + description)
+    detected = []
+    seen_anchors = set()  # ancres déjà matchées (pour ne pas doubler iphone 16 + iphone)
+
+    for entry in CATALOG:
+        anchors = entry['anchor']
+        # Vérifie que l'anchor n'a pas déjà été capturé par un modèle plus spécifique
+        anchor_key = anchors[0]  # clé de famille = 1er anchor
+        if anchor_key in seen_anchors:
+            continue
+        if not _anchor_present(text, anchors):
+            continue
+        required = entry.get('required', [])
+        min_hits = entry.get('min_hits', 0)
+        excludes = entry.get('exclude', [])
+        if _exclude_hit(text, excludes):
+            continue
+        hits = _count_required(text, required)
+        if hits < min_hits:
+            continue
+        # Match validé
+        ref_price = entry.get('ref_price', 0)
+        bm_key = entry.get('bm_key')
+        if bm_key:
+            live = scrape_backmarket_price(bm_key)
+            if live:
+                ref_price = live
+            elif ref_price == 0:
+                ref_price = EMERGENCY_PRICES.get(bm_key, 0)
+        if ref_price <= 0:
+            continue
+        detected.append({
+            'name': entry['name'],
+            'ref_price': ref_price,
+            'category': entry['category'],
+            'confidence': 90 if hits >= min_hits and min_hits > 0 else 70,
+        })
+        seen_anchors.add(anchor_key)
+    is_lot = any(w in text for w in LOT_TRIGGER_WORDS)
+    return detected, is_lot
+
+
+EMERGENCY_PRICES = {
+    'iphone 16 pro': 950, 'iphone 16': 720, 'iphone 15 pro': 820,
+    'iphone 15': 580, 'iphone 14 pro': 600, 'iphone 14': 430,
+    'iphone 13 pro': 350, 'iphone 13': 310, 'iphone 12': 210,
+    'iphone 11': 150, 'iphone xr': 110, 'iphone xs': 130, 'iphone se': 90,
+    'samsung galaxy s24 ultra': 750, 'samsung galaxy s24': 580,
+    'ps5': 380, 'xbox series x': 350, 'nintendo switch oled': 230, 'steam deck': 360,
+    'macbook pro m3': 1600, 'macbook pro m2': 1200, 'macbook pro m1': 900,
+    'macbook air m2': 850, 'macbook air m1': 620,
+    'ipad pro': 600, 'ipad air': 450,
+    'dyson v15': 420, 'dyson v12': 340, 'dyson airwrap': 380,
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MOBILIER : détection sémantème visuel
+# ─────────────────────────────────────────────────────────────────────────────
+
 def detect_premium_furniture(title, description=''):
-    text = (title + ' ' + description).lower()
+    text = _tokenize(title + ' ' + description)
     best_model = None
     best_score = 0
     for model_name, data in PREMIUM_FURNITURE.items():
@@ -253,18 +395,19 @@ def detect_premium_furniture(title, description=''):
 
 
 def knowledge_gap_score(title, description='', detected_model=None):
-    text = (title + ' ' + description).lower()
+    text = _tokenize(title + ' ' + description)
+    t = _tokenize(title)
     score = 0
-    if any(g in title.lower() for g in GENERIC_TITLES):
+    if any(g in t for g in GENERIC_TITLES):
         score += 20
     if any(p in text for p in UNCERTAIN_PHRASES):
         score += 25
     if detected_model and detected_model in PREMIUM_FURNITURE:
         brand = PREMIUM_FURNITURE[detected_model]['brand']
-        if brand not in title.lower():
+        if brand not in t:
             score += 20
         model_short = detected_model.split()[-1]
-        if model_short not in title.lower():
+        if model_short not in t:
             score += 15
     if len(title.split()) <= 3:
         score += 8
@@ -286,12 +429,12 @@ def delay(short=False):
 def extract_price(text):
     if not text:
         return None
-    text = text.replace('\xa0', '').replace('\u202f', '').replace('\u00a0', '').replace(' ', '').replace(',', '.')
-    match = re.search(r'([\d]+\.?[\d]*)', text)
-    if match:
+    text = text.replace('\xa0','').replace('\u202f','').replace('\u00a0','').replace(' ','').replace(',','.')
+    m = re.search(r'([\d]+\.?[\d]*)', text)
+    if m:
         try:
-            val = float(match.group(1))
-            return val if val > 0 else None
+            v = float(m.group(1))
+            return v if v > 0 else None
         except Exception:
             return None
     return None
@@ -300,139 +443,66 @@ def extract_price(text):
 def scrape_backmarket_price(product_name):
     now = time.time()
     with _bm_cache_lock:
-        ts = _bm_cache_ts.get(product_name, 0)
-        if now - ts < BM_CACHE_TTL and product_name in _bm_price_cache:
+        if now - _bm_cache_ts.get(product_name, 0) < BM_CACHE_TTL and product_name in _bm_price_cache:
             return _bm_price_cache[product_name]
     try:
-        query = requests.utils.quote(product_name)
-        url = f'https://www.backmarket.fr/fr-fr/search?q={query}&grade=9'
-        headers = get_headers()
-        headers['Accept-Language'] = 'fr-FR,fr;q=0.9'
-        headers['Accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        resp = requests.get(url, headers=headers, timeout=15)
+        url = f'https://www.backmarket.fr/fr-fr/search?q={requests.utils.quote(product_name)}&grade=9'
+        h = get_headers()
+        h.update({'Accept-Language': 'fr-FR,fr;q=0.9', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'})
+        resp = requests.get(url, headers=h, timeout=15)
         delay(short=True)
         if resp.status_code != 200:
             return None
         soup = BeautifulSoup(resp.text, 'html5lib')
-        price_candidates = []
-        for el in soup.select('[data-qa="product-price"], [class*="price"], [class*="Price"]'):
+        candidates = []
+        for el in soup.select('[data-qa="product-price"],[class*="price"],[class*="Price"]'):
             p = extract_price(el.get_text(strip=True))
             if p and 10 < p < 20000:
-                price_candidates.append(p)
-        if not price_candidates:
+                candidates.append(p)
+        if not candidates:
             script = soup.find('script', {'id': '__NEXT_DATA__'})
             if script and script.string:
                 for m in re.findall(r'"price"\s*:\s*"?([\d]+\.?[\d]*)"?', script.string):
                     try:
                         p = float(m)
-                        if 10 < p < 20000:
-                            price_candidates.append(p)
-                    except Exception:
-                        pass
-        if price_candidates:
-            best_price = min(price_candidates)
+                        if 10 < p < 20000: candidates.append(p)
+                    except Exception: pass
+        if candidates:
+            best = min(candidates)
             with _bm_cache_lock:
-                _bm_price_cache[product_name] = best_price
+                _bm_price_cache[product_name] = best
                 _bm_cache_ts[product_name] = now
-            print(f'[BackMarket] {product_name} → {best_price}€')
-            return best_price
+            print(f'[BM] {product_name} → {best}€')
+            return best
     except Exception as e:
-        print(f'[BackMarket] Erreur "{product_name}": {e}')
+        print(f'[BM] Erreur {product_name}: {e}')
     return None
 
 
-def prefetch_backmarket_prices(product_names):
-    def _fetch_all():
-        for name in product_names:
+def prefetch_backmarket_prices():
+    keys = list({e['bm_key'] for e in CATALOG if 'bm_key' in e})
+    def _run():
+        for k in keys[:20]:
             now = time.time()
             with _bm_cache_lock:
-                already = now - _bm_cache_ts.get(name, 0) < BM_CACHE_TTL and name in _bm_price_cache
-            if not already:
-                scrape_backmarket_price(name)
+                fresh = now - _bm_cache_ts.get(k, 0) < BM_CACHE_TTL and k in _bm_price_cache
+            if not fresh:
+                scrape_backmarket_price(k)
                 time.sleep(random.uniform(1.0, 2.0))
-    threading.Thread(target=_fetch_all, daemon=True).start()
-
-
-def get_ref_price(product_name):
-    if product_name in BACKMARKET_CATALOG:
-        live = scrape_backmarket_price(product_name)
-        if live:
-            return live, 'live'
-        with _bm_cache_lock:
-            cached = _bm_price_cache.get(product_name)
-        if cached:
-            return cached, 'fallback'
-        emergency = {
-            'iphone 16 pro': 950, 'iphone 16': 720, 'iphone 15 pro': 820,
-            'iphone 15': 580, 'iphone 14 pro': 600, 'iphone 14': 430,
-            'iphone 13': 310, 'iphone 12': 210, 'iphone 11': 150,
-            'iphone xr': 110, 'ps5': 380, 'xbox series x': 350,
-            'nintendo switch oled': 230, 'steam deck': 360,
-            'macbook pro m3': 1600, 'macbook pro m2': 1200, 'macbook pro m1': 900,
-            'macbook air m2': 850, 'macbook air m1': 620,
-            'dyson v15': 420, 'dyson airwrap': 380,
-        }
-        return emergency.get(product_name, 0), 'fallback'
-    if product_name in FIXED_PRICES:
-        return FIXED_PRICES[product_name]['ref_price'], 'fixed'
-    if product_name in PREMIUM_FURNITURE:
-        return PREMIUM_FURNITURE[product_name]['market_price'], 'fixed'
-    return 0, 'unknown'
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# DÉTECTION OBJETS
-# ─────────────────────────────────────────────────────────────────────────────
-
-ALL_OBJECTS = {}
-for name, data in BACKMARKET_CATALOG.items():
-    ALL_OBJECTS[name] = data
-for name, data in FIXED_PRICES.items():
-    ALL_OBJECTS[name] = data
-
-
-def detect_value_objects(title, description=''):
-    full_text = (title + ' ' + description).lower()
-    detected = []
-    seen = set()
-    for obj_name, obj_data in ALL_OBJECTS.items():
-        if obj_name in seen:
-            continue
-        score = fuzz.partial_ratio(obj_name.lower(), full_text)
-        if score >= 78:
-            ref_price, price_source = get_ref_price(obj_name)
-            if ref_price > 0:
-                detected.append({'name': obj_name, 'ref_price': ref_price, 'price_source': price_source, 'category': obj_data['category'], 'confidence': score})
-                seen.add(obj_name)
-                continue
-        kw_matches = sum(1 for kw in obj_data['keywords'] if kw.lower() in full_text)
-        if kw_matches >= 2:
-            ref_price, price_source = get_ref_price(obj_name)
-            if ref_price > 0:
-                detected.append({'name': obj_name, 'ref_price': ref_price, 'price_source': price_source, 'category': obj_data['category'], 'confidence': min(60 + kw_matches * 10, 90)})
-                seen.add(obj_name)
-    is_lot = any(w in full_text for w in LOT_TRIGGER_WORDS)
-    return detected, is_lot
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def calculate_deal_score(price, ref_price, is_lot=False, nb_detected=0):
     if not price or not ref_price or price <= 0:
         return 0, 0
-    effective_ref = ref_price
-    if is_lot and nb_detected > 1:
-        effective_ref = ref_price * min(nb_detected, 3) * 0.6
-    discount_pct = ((effective_ref - price) / effective_ref) * 100
-    if discount_pct <= 0:
-        score = 0
-    elif discount_pct < 20:
-        score = discount_pct * 1.5
-    elif discount_pct < 40:
-        score = 30 + (discount_pct - 20) * 2
-    elif discount_pct < 60:
-        score = 70 + (discount_pct - 40) * 1
-    else:
-        score = min(90 + (discount_pct - 60) * 0.5, 100)
-    return round(discount_pct, 1), round(score)
+    eff = ref_price * min(nb_detected, 3) * 0.6 if is_lot and nb_detected > 1 else ref_price
+    disc = ((eff - price) / eff) * 100
+    if disc <= 0: score = 0
+    elif disc < 20: score = disc * 1.5
+    elif disc < 40: score = 30 + (disc - 20) * 2
+    elif disc < 60: score = 70 + (disc - 40)
+    else: score = min(90 + (disc - 60) * 0.5, 100)
+    return round(disc, 1), round(score)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -443,30 +513,25 @@ class DealScraper:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(get_headers())
-        print('[BackMarket] Pré-chargement des prix...')
-        prefetch_backmarket_prices(list(BACKMARKET_CATALOG.keys())[:20])
+        print('[BM] Pré-chargement des prix BackMarket...')
+        prefetch_backmarket_prices()
 
-    def _parse_listing(self, item, platform, platform_color):
+    def _parse_listing(self, item, platform, color):
         try:
             title_el = item.select_one('[class*="title"],[class*="Title"]') or item.find(['h2','h3','p'])
             price_el = item.select_one('[class*="price"],[class*="Price"]') or item.find(string=re.compile(r'\d+\s*€'))
-            link_el = item if item.name == 'a' else item.find('a')
-            img_el = item.find('img')
+            link_el  = item if item.name == 'a' else item.find('a')
+            img_el   = item.find('img')
             title = title_el.get_text(strip=True) if title_el else ''
             price_text = price_el.get_text(strip=True) if hasattr(price_el, 'get_text') else str(price_el or '')
             price = extract_price(price_text)
             href = link_el.get('href', '') if link_el else ''
-            link = ''
-            if href.startswith('http'):
-                link = href
-            elif href.startswith('/'):
-                domain = 'https://www.leboncoin.fr' if platform == 'LeBonCoin' else 'https://www.vinted.fr'
-                link = domain + href
-            img = ''
-            if img_el:
-                img = img_el.get('src') or img_el.get('data-src', '')
+            if href.startswith('http'): link = href
+            elif href.startswith('/'): link = ('https://www.leboncoin.fr' if platform == 'LeBonCoin' else 'https://www.vinted.fr') + href
+            else: link = ''
+            img = (img_el.get('src') or img_el.get('data-src', '')) if img_el else ''
             if title and price and 1 < price < 50000:
-                return {'title': title, 'price': price, 'price_str': f'{price}€', 'link': link, 'image': img, 'platform': platform, 'platform_color': platform_color}
+                return {'title': title, 'price': price, 'link': link, 'image': img, 'platform': platform, 'platform_color': color}
         except Exception:
             pass
         return None
@@ -478,13 +543,13 @@ class DealScraper:
             resp = self.session.get(url, headers=get_headers(), timeout=15)
             delay()
             soup = BeautifulSoup(resp.text, 'html5lib')
-            listings = soup.select('[data-test-id="ad"]') or soup.select('article[class*="styles_adCard"]') or soup.select('article') or soup.select('li[class*="aditem"]')
-            for item in listings[:max_results]:
+            items = (soup.select('[data-test-id="ad"]') or soup.select('article[class*="styles_adCard"]')
+                     or soup.select('article') or soup.select('li[class*="aditem"]'))
+            for item in items[:max_results]:
                 r = self._parse_listing(item, 'LeBonCoin', '#F56B2A')
-                if r:
-                    results.append(r)
+                if r: results.append(r)
         except Exception as e:
-            print(f'[LBC] Erreur: {e}')
+            print(f'[LBC] {e}')
         return results
 
     def scrape_vinted(self, query, max_results=30):
@@ -494,13 +559,13 @@ class DealScraper:
             resp = self.session.get(url, headers=get_headers(), timeout=15)
             delay()
             soup = BeautifulSoup(resp.text, 'html5lib')
-            listings = soup.select('[data-testid="grid-item"]') or soup.select('.feed-grid__item') or soup.select('[class*="ItemBox"]')
-            for item in listings[:max_results]:
+            items = (soup.select('[data-testid="grid-item"]') or soup.select('.feed-grid__item')
+                     or soup.select('[class*="ItemBox"]'))
+            for item in items[:max_results]:
                 r = self._parse_listing(item, 'Vinted', '#09B1BA')
-                if r:
-                    results.append(r)
+                if r: results.append(r)
         except Exception as e:
-            print(f'[Vinted] Erreur: {e}')
+            print(f'[Vinted] {e}')
         return results
 
     def scrape_ebay(self, query, max_results=30):
@@ -512,20 +577,19 @@ class DealScraper:
             soup = BeautifulSoup(resp.text, 'html5lib')
             for item in (soup.select('.s-item') or [])[:max_results]:
                 try:
-                    title_el = item.select_one('.s-item__title')
-                    price_el = item.select_one('.s-item__price')
-                    link_el = item.select_one('a.s-item__link') or item.find('a')
-                    img_el = item.find('img')
-                    title = title_el.get_text(strip=True) if title_el else ''
-                    if 'Shop on eBay' in title or not title:
-                        continue
-                    price = extract_price(price_el.get_text(strip=True) if price_el else '')
+                    te = item.select_one('.s-item__title')
+                    pe = item.select_one('.s-item__price')
+                    le = item.select_one('a.s-item__link') or item.find('a')
+                    ie = item.find('img')
+                    title = te.get_text(strip=True) if te else ''
+                    if 'Shop on eBay' in title or not title: continue
+                    price = extract_price(pe.get_text(strip=True) if pe else '')
                     if price and 1 < price < 50000:
-                        results.append({'title': title, 'price': price, 'price_str': f'{price}€', 'link': link_el.get('href','') if link_el else '', 'image': img_el.get('src','') if img_el else '', 'platform': 'eBay', 'platform_color': '#E53238'})
-                except Exception:
-                    continue
+                        results.append({'title': title, 'price': price, 'link': le.get('href','') if le else '',
+                                        'image': ie.get('src','') if ie else '', 'platform': 'eBay', 'platform_color': '#E53238'})
+                except Exception: continue
         except Exception as e:
-            print(f'[eBay] Erreur: {e}')
+            print(f'[eBay] {e}')
         return results
 
     def analyze_listings(self, listings, min_discount=40):
@@ -536,25 +600,35 @@ class DealScraper:
             price = item.get('price')
             if not price:
                 continue
+
+            # 1. Détection catalogue strict
+            detected_objects, is_lot = match_catalog(title, description)
+
+            # 2. Détection mobilier premium (sémantique visuelle)
             furniture_model, furniture_conf = detect_premium_furniture(title, description)
             kg_score = knowledge_gap_score(title, description, furniture_model)
-            detected_objects, is_lot = detect_value_objects(title, description)
             if furniture_model and furniture_conf >= 30:
                 fd = PREMIUM_FURNITURE[furniture_model]
-                detected_objects.append({'name': furniture_model, 'ref_price': fd['market_price'], 'price_source': 'fixed', 'category': fd['category'], 'confidence': furniture_conf})
+                detected_objects.append({
+                    'name': furniture_model, 'ref_price': fd['market_price'],
+                    'category': fd['category'], 'confidence': furniture_conf
+                })
+
             if not detected_objects:
                 continue
+
             best_obj = max(detected_objects, key=lambda x: x['ref_price'])
-            discount_pct, base_score = calculate_deal_score(price, best_obj['ref_price'], is_lot, len(detected_objects))
+            disc, base_score = calculate_deal_score(price, best_obj['ref_price'], is_lot, len(detected_objects))
             final_score = round(base_score * 0.55 + kg_score * 0.45)
-            if discount_pct >= min_discount or (furniture_model and kg_score >= 50):
-                result = {**item,
+
+            if disc >= min_discount or (furniture_model and kg_score >= 50):
+                result = {
+                    **item,
                     'detected_objects': detected_objects,
                     'best_match': best_obj['name'],
                     'ref_price': best_obj['ref_price'],
-                    'price_source': best_obj.get('price_source', 'fixed'),
                     'category': best_obj['category'],
-                    'discount_pct': discount_pct,
+                    'discount_pct': disc,
                     'deal_score': base_score,
                     'final_opportunity_score': final_score,
                     'knowledge_gap_score': kg_score,
@@ -566,55 +640,34 @@ class DealScraper:
                     result['furniture_model'] = furniture_model
                     result['furniture_confidence'] = furniture_conf
                 deals.append(result)
+
         deals.sort(key=lambda x: x.get('final_opportunity_score', x.get('deal_score', 0)), reverse=True)
         return deals
 
     def search_deals(self, keywords, min_discount=40, platforms=None):
-        if platforms is None:
-            platforms = ['leboncoin', 'vinted', 'ebay']
-        all_listings = []
-        if 'leboncoin' in platforms: all_listings += self.scrape_leboncoin(keywords)
-        if 'vinted' in platforms: all_listings += self.scrape_vinted(keywords)
-        if 'ebay' in platforms: all_listings += self.scrape_ebay(keywords)
-        deals = self.analyze_listings(all_listings, min_discount)
-        return {'deals': deals, 'total_scanned': len(all_listings), 'total_deals': len(deals), 'query': keywords}
+        if platforms is None: platforms = ['leboncoin', 'vinted', 'ebay']
+        listings = []
+        if 'leboncoin' in platforms: listings += self.scrape_leboncoin(keywords)
+        if 'vinted'    in platforms: listings += self.scrape_vinted(keywords)
+        if 'ebay'      in platforms: listings += self.scrape_ebay(keywords)
+        deals = self.analyze_listings(listings, min_discount)
+        return {'deals': deals, 'total_scanned': len(listings), 'total_deals': len(deals), 'query': keywords}
 
     def auto_hunt(self, min_discount=50, platforms=None):
-        if platforms is None:
-            platforms = ['leboncoin', 'vinted', 'ebay']
-        hunt_queries = [
-            'lot electronique', 'lot telephone', 'iphone occasion',
-            'montre collection', 'vide grenier appareil photo',
-            'chaine hifi vintage', 'ampli hifi',
-            'guitare electrique', 'saxophone',
+        if platforms is None: platforms = ['leboncoin', 'vinted', 'ebay']
+        queries = [
+            'lot electronique', 'iphone occasion', 'montre collection',
+            'ampli hifi vintage', 'guitare electrique occasion',
             'leica appareil photo', 'chaise bureau ergonomique',
-            'fauteuil ergonomique', 'mobilier bureau liquidation',
-            'dyson aspirateur', 'lego boite',
-            'veste patagonia', 'arc teryx veste',
-            'platine vinyle technics', 'instrument musique lot'
+            'fauteuil ergonomique bureau', 'dyson aspirateur',
+            'veste patagonia', 'arc teryx veste', 'platine vinyle'
         ]
-        all_listings = []
-        for query in hunt_queries[:10]:
-            if 'leboncoin' in platforms: all_listings += self.scrape_leboncoin(query, max_results=15)
-            if 'ebay' in platforms: all_listings += self.scrape_ebay(query, max_results=15)
+        listings = []
+        for q in queries:
+            if 'leboncoin' in platforms: listings += self.scrape_leboncoin(q, max_results=15)
+            if 'ebay'      in platforms: listings += self.scrape_ebay(q, max_results=15)
             time.sleep(random.uniform(0.8, 1.5))
         seen = set()
-        unique = [item for item in all_listings if item.get('link') and item['link'] not in seen and not seen.add(item['link'])]
+        unique = [i for i in listings if i.get('link') and i['link'] not in seen and not seen.add(i['link'])]
         deals = self.analyze_listings(unique, min_discount)
         return {'deals': deals, 'total_scanned': len(unique), 'total_deals': len(deals), 'query': 'Auto Hunt'}
-
-    def get_value_categories(self):
-        cats = {}
-        for obj_name, obj_data in ALL_OBJECTS.items():
-            cat = obj_data['category']
-            if cat not in cats: cats[cat] = []
-            ref, src = get_ref_price(obj_name)
-            cats[cat].append({'name': obj_name, 'ref_price': ref, 'price_source': src})
-        return cats
-
-    def get_cache_status(self):
-        now = time.time()
-        with _bm_cache_lock:
-            cached = [{'name': k, 'price': _bm_price_cache[k], 'age_min': round((now - _bm_cache_ts[k]) / 60, 1)} for k in _bm_price_cache]
-        cached.sort(key=lambda x: x['name'])
-        return {'cached_count': len(cached), 'items': cached}
