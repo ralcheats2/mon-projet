@@ -8,18 +8,9 @@ from thefuzz import fuzz
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PRIX DE RÉFÉRENCE EN TEMPS RÉEL
-#
-# Stratégie hybride :
-#   • Électronique (téléphones, ordi, tablettes, gaming, audio…)
-#     → scraping BackMarket.fr en direct, prix "Bon état", cache 6h en mémoire
-#   • Luxe, montres, sneakers, cartes, LEGO, vinyles
-#     → prix fixes (BackMarket ne les couvre pas)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Catalogue BackMarket : slug de recherche → nom canonique + catégorie
-# Le slug est utilisé dans l'URL backmarket.fr/fr-fr/search?q=<slug>
 BACKMARKET_CATALOG = {
-    # Téléphones Apple
     'iphone 16 pro':        {'category': '📱 Téléphones', 'keywords': ['iphone', '16 pro', 'apple']},
     'iphone 16':            {'category': '📱 Téléphones', 'keywords': ['iphone', '16', 'apple']},
     'iphone 15 pro':        {'category': '📱 Téléphones', 'keywords': ['iphone', '15 pro', 'apple']},
@@ -34,16 +25,13 @@ BACKMARKET_CATALOG = {
     'iphone xs':            {'category': '📱 Téléphones', 'keywords': ['iphone', 'xs', 'apple']},
     'iphone x':             {'category': '📱 Téléphones', 'keywords': ['iphone', ' x ', 'apple']},
     'iphone se':            {'category': '📱 Téléphones', 'keywords': ['iphone', 'se', 'apple']},
-    # Téléphones Samsung
     'samsung galaxy s24 ultra': {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's24', 'ultra']},
     'samsung galaxy s24':   {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's24']},
     'samsung galaxy s23':   {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's23']},
     'samsung galaxy s22':   {'category': '📱 Téléphones', 'keywords': ['samsung', 'galaxy', 's22']},
-    # Google / autres
     'google pixel 8 pro':   {'category': '📱 Téléphones', 'keywords': ['pixel', '8 pro', 'google']},
     'google pixel 8':       {'category': '📱 Téléphones', 'keywords': ['pixel', '8', 'google']},
     'oneplus 12':           {'category': '📱 Téléphones', 'keywords': ['oneplus', '12']},
-    # Mac
     'macbook pro m3':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'pro', 'm3', 'apple']},
     'macbook pro m2':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'pro', 'm2', 'apple']},
     'macbook pro m1':       {'category': '💻 Ordinateurs', 'keywords': ['macbook', 'pro', 'm1', 'apple']},
@@ -52,12 +40,10 @@ BACKMARKET_CATALOG = {
     'imac m1':              {'category': '💻 Ordinateurs', 'keywords': ['imac', 'm1', 'apple']},
     'dell xps':             {'category': '💻 Ordinateurs', 'keywords': ['dell', 'xps']},
     'thinkpad x1':          {'category': '💻 Ordinateurs', 'keywords': ['thinkpad', 'x1', 'lenovo']},
-    # Tablettes
     'ipad pro':             {'category': '📱 Tablettes', 'keywords': ['ipad', 'pro', 'apple']},
     'ipad air':             {'category': '📱 Tablettes', 'keywords': ['ipad', 'air', 'apple']},
     'ipad':                 {'category': '📱 Tablettes', 'keywords': ['ipad', 'apple', 'tablette']},
     'samsung galaxy tab s9':{'category': '📱 Tablettes', 'keywords': ['samsung', 'galaxy tab', 's9']},
-    # Gaming
     'ps5':                  {'category': '🎮 Gaming', 'keywords': ['ps5', 'playstation 5', 'sony']},
     'ps4 pro':              {'category': '🎮 Gaming', 'keywords': ['ps4 pro', 'playstation 4 pro']},
     'ps4':                  {'category': '🎮 Gaming', 'keywords': ['ps4', 'playstation 4']},
@@ -66,13 +52,11 @@ BACKMARKET_CATALOG = {
     'nintendo switch oled': {'category': '🎮 Gaming', 'keywords': ['switch', 'oled', 'nintendo']},
     'nintendo switch':      {'category': '🎮 Gaming', 'keywords': ['switch', 'nintendo', 'console']},
     'steam deck':           {'category': '🎮 Gaming', 'keywords': ['steam deck', 'valve']},
-    # Audio
     'airpods pro 2':        {'category': '🎧 Audio', 'keywords': ['airpods', 'pro 2', 'apple']},
     'airpods pro':          {'category': '🎧 Audio', 'keywords': ['airpods', 'pro', 'apple']},
     'sony wh-1000xm5':      {'category': '🎧 Audio', 'keywords': ['sony', 'xm5', 'casque']},
     'sony wh-1000xm4':      {'category': '🎧 Audio', 'keywords': ['sony', 'xm4', 'casque']},
     'bose qc45':            {'category': '🎧 Audio', 'keywords': ['bose', 'qc45', 'quietcomfort']},
-    # Photo
     'gopro hero 12':        {'category': '📷 Photo/Vidéo', 'keywords': ['gopro', 'hero 12']},
     'gopro hero 11':        {'category': '📷 Photo/Vidéo', 'keywords': ['gopro', 'hero 11']},
     'canon eos r':          {'category': '📷 Photo/Vidéo', 'keywords': ['canon', 'eos r', 'hybride']},
@@ -80,7 +64,6 @@ BACKMARKET_CATALOG = {
     'sony alpha a7':        {'category': '📷 Photo/Vidéo', 'keywords': ['sony', 'alpha', 'a7']},
     'sony alpha a6':        {'category': '📷 Photo/Vidéo', 'keywords': ['sony', 'alpha', 'a6']},
     'drone dji':            {'category': '📷 Photo/Vidéo', 'keywords': ['dji', 'drone', 'mavic']},
-    # Électroménager
     'dyson v15':            {'category': '🏠 Électroménager', 'keywords': ['dyson', 'v15', 'aspirateur']},
     'dyson v12':            {'category': '🏠 Électroménager', 'keywords': ['dyson', 'v12', 'aspirateur']},
     'dyson v11':            {'category': '🏠 Électroménager', 'keywords': ['dyson', 'v11', 'aspirateur']},
@@ -89,15 +72,12 @@ BACKMARKET_CATALOG = {
     'thermomix tm6':        {'category': '🏠 Électroménager', 'keywords': ['thermomix', 'tm6', 'vorwerk']},
     'thermomix tm5':        {'category': '🏠 Électroménager', 'keywords': ['thermomix', 'tm5', 'vorwerk']},
     'roomba':               {'category': '🏠 Électroménager', 'keywords': ['roomba', 'irobot']},
-    # Apple Watch
     'apple watch ultra':    {'category': '⌚ Montres', 'keywords': ['apple watch', 'ultra']},
     'apple watch series 9': {'category': '⌚ Montres', 'keywords': ['apple watch', 'series 9']},
     'apple watch series 8': {'category': '⌚ Montres', 'keywords': ['apple watch', 'series 8']},
 }
 
-# Prix fixes pour catégories non couvertes par BackMarket
 FIXED_PRICES = {
-    # Montres mécaniques
     'rolex submariner':  {'ref_price': 9000,  'category': '⌚ Montres', 'keywords': ['rolex', 'submariner']},
     'rolex datejust':    {'ref_price': 6500,  'category': '⌚ Montres', 'keywords': ['rolex', 'datejust']},
     'rolex':             {'ref_price': 7000,  'category': '⌚ Montres', 'keywords': ['rolex', 'montre', 'oyster']},
@@ -107,7 +87,6 @@ FIXED_PRICES = {
     'breitling':         {'ref_price': 2500,  'category': '⌚ Montres', 'keywords': ['breitling', 'navitimer']},
     'seiko':             {'ref_price': 150,   'category': '⌚ Montres', 'keywords': ['seiko', 'srpd', 'skx']},
     'casio g-shock':     {'ref_price': 80,    'category': '⌚ Montres', 'keywords': ['casio', 'g-shock', 'gshock']},
-    # Luxe / Sacs
     'hermes birkin':     {'ref_price': 8000,  'category': '👜 Luxe/Mode', 'keywords': ['hermes', 'birkin']},
     'hermes kelly':      {'ref_price': 6000,  'category': '👜 Luxe/Mode', 'keywords': ['hermes', 'kelly']},
     'hermes':            {'ref_price': 3000,  'category': '👜 Luxe/Mode', 'keywords': ['hermes', 'sac']},
@@ -118,24 +97,20 @@ FIXED_PRICES = {
     'louis vuitton':     {'ref_price': 700,   'category': '👜 Luxe/Mode', 'keywords': ['louis vuitton', 'vuitton', 'lv']},
     'dior':              {'ref_price': 800,   'category': '👜 Luxe/Mode', 'keywords': ['dior', 'sac']},
     'gucci':             {'ref_price': 500,   'category': '👜 Luxe/Mode', 'keywords': ['gucci', 'sac']},
-    # Sneakers
     'yeezy 350':         {'ref_price': 220,   'category': '👟 Sneakers', 'keywords': ['yeezy', '350', 'adidas']},
     'yeezy':             {'ref_price': 200,   'category': '👟 Sneakers', 'keywords': ['yeezy', 'adidas']},
     'jordan 1 retro':    {'ref_price': 170,   'category': '👟 Sneakers', 'keywords': ['jordan 1', 'air jordan', 'aj1']},
     'jordan 4':          {'ref_price': 200,   'category': '👟 Sneakers', 'keywords': ['jordan 4', 'aj4']},
     'nike dunk':         {'ref_price': 110,   'category': '👟 Sneakers', 'keywords': ['nike', 'dunk']},
     'new balance 550':   {'ref_price': 120,   'category': '👟 Sneakers', 'keywords': ['new balance', '550']},
-    # Cartes / Jeux
     'carte pokemon charizard': {'ref_price': 200, 'category': '🃏 Cartes/Jeux', 'keywords': ['pokemon', 'charizard', 'carte']},
     'pokemon lot':       {'ref_price': 80,    'category': '🃏 Cartes/Jeux', 'keywords': ['pokemon', 'cartes', 'lot']},
     'one piece carte':   {'ref_price': 60,    'category': '🃏 Cartes/Jeux', 'keywords': ['one piece', 'carte']},
     'magic gathering':   {'ref_price': 100,   'category': '🃏 Cartes/Jeux', 'keywords': ['magic', 'gathering', 'mtg']},
-    # LEGO
     'lego technic':      {'ref_price': 180,   'category': '🧱 LEGO', 'keywords': ['lego', 'technic']},
     'lego star wars':    {'ref_price': 200,   'category': '🧱 LEGO', 'keywords': ['lego', 'star wars']},
     'lego creator':      {'ref_price': 150,   'category': '🧱 LEGO', 'keywords': ['lego', 'creator']},
     'lego':              {'ref_price': 100,   'category': '🧱 LEGO', 'keywords': ['lego', 'boite', 'set']},
-    # Vinyles
     'vinyle':            {'ref_price': 40,    'category': '🎵 Vinyles', 'keywords': ['vinyle', 'vinyl', 'disque', '33t']},
 }
 
@@ -151,14 +126,187 @@ HEADERS_POOL = [
     {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'},
 ]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CACHE DES PRIX BACKMARKET (en mémoire, durée de vie = 6h)
-# ─────────────────────────────────────────────────────────────────────────────
-_bm_price_cache = {}          # {product_name: prix_float}
-_bm_cache_ts    = {}          # {product_name: timestamp_last_fetch}
+_bm_price_cache = {}
+_bm_cache_ts    = {}
 _bm_cache_lock  = threading.Lock()
-BM_CACHE_TTL    = 6 * 3600   # 6 heures en secondes
+BM_CACHE_TTL    = 6 * 3600
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DÉTECTION MOBILIER PREMIUM MÉCONNU
+# ─────────────────────────────────────────────────────────────────────────────
+
+GENERIC_TITLES = [
+    'chaise bureau', 'fauteuil bureau', 'siege bureau', 'chaise',
+    'fauteuil', 'chaise ergonomique', 'chaise filet', 'chaise mesh',
+    'siege ergonomique', 'chaise de travail', 'chaise gaming'
+]
+
+UNCERTAIN_PHRASES = [
+    'je ne connais pas la marque', 'je ne sais pas', 'sans marque',
+    'recuperation', 'debarras', 'vide bureau', 'provenance bureau',
+    'ancien materiel', 'lot mobilier', 'trouve', 'succession',
+    'pas la marque', 'marque inconnue', 'open space', 'liquidation',
+    'vide local', 'ca appartenait', 'appartenait a mon entreprise'
+]
+
+PREMIUM_FURNITURE = {
+    'herman miller aeron': {
+        'brand': 'herman miller',
+        'category': '🪑 Mobilier Premium',
+        'ref_price': (350, 900),
+        'market_price': 600,
+        'strong_features': [
+            'posturefit', 'posturefit sl', 'pellicle', 'aeron',
+            'taille b', 'taille c', 'taille a', 'support lombaire reglable',
+            '8z pellicle'
+        ],
+        'shape_features': [
+            'maille', 'mesh', 'filet', 'molette inclinaison',
+            'accoudoirs reglables', 'dossier filet', 'assise filet'
+        ]
+    },
+    'herman miller embody': {
+        'brand': 'herman miller',
+        'category': '🪑 Mobilier Premium',
+        'ref_price': (700, 1300),
+        'market_price': 900,
+        'strong_features': [
+            'embody', 'backfit', 'posturefit', 'pixelated support', 'herman miller'
+        ],
+        'shape_features': [
+            'colonne centrale', 'dossier etroit en haut', 'ribs',
+            'assise multicouche', 'flexible ribs'
+        ]
+    },
+    'herman miller mirra': {
+        'brand': 'herman miller',
+        'category': '🪑 Mobilier Premium',
+        'ref_price': (180, 500),
+        'market_price': 300,
+        'strong_features': [
+            'mirra', 'herman miller', 'inclinaison avant'
+        ],
+        'shape_features': [
+            'dossier plastique perfore', 'dossier ventile', 'assise mesh suspendue',
+            'grand dossier plastique'
+        ]
+    },
+    'steelcase leap': {
+        'brand': 'steelcase',
+        'category': '🪑 Mobilier Premium',
+        'ref_price': (300, 800),
+        'market_price': 500,
+        'strong_features': [
+            'steelcase', 'leap', 'liveback', 'natural glide'
+        ],
+        'shape_features': [
+            'dossier flexible', 'assise reglable', 'soutien lombaire automatique',
+            'accoudoirs 4d'
+        ]
+    },
+    'steelcase gesture': {
+        'brand': 'steelcase',
+        'category': '🪑 Mobilier Premium',
+        'ref_price': (350, 900),
+        'market_price': 600,
+        'strong_features': [
+            'steelcase', 'gesture', '360 arm'
+        ],
+        'shape_features': [
+            'accoudoirs 360', 'support tablette', 'dossier adaptable',
+            'accoudoirs pivotants'
+        ]
+    },
+    'humanscale freedom': {
+        'brand': 'humanscale',
+        'category': '🪑 Mobilier Premium',
+        'ref_price': (400, 1000),
+        'market_price': 650,
+        'strong_features': [
+            'humanscale', 'freedom', 'recline tension automatique'
+        ],
+        'shape_features': [
+            'appuie-tete integre', 'inclinaison automatique', 'appui tete reglable',
+            'reglage automatique'
+        ]
+    },
+    'vitra eames': {
+        'brand': 'vitra',
+        'category': '🪑 Mobilier Premium',
+        'ref_price': (500, 2000),
+        'market_price': 900,
+        'strong_features': [
+            'vitra', 'eames', 'lounge chair', 'daw', 'dsx', 'plastic chair'
+        ],
+        'shape_features': [
+            'coque plastique', 'pied tour eiffel', 'assise coque',
+            'design annees 50', 'design scandinave'
+        ]
+    },
+}
+
+
+def detect_premium_furniture(title: str, description: str = '') -> tuple:
+    """
+    Détecte un modèle de mobilier premium dans un titre/description.
+    Retourne (model_name_or_None, confidence_score).
+    """
+    text = (title + ' ' + description).lower()
+    best_model = None
+    best_score = 0
+
+    for model_name, data in PREMIUM_FURNITURE.items():
+        score = 0
+        for feat in data['strong_features']:
+            if feat in text:
+                score += 3
+        for feat in data['shape_features']:
+            if feat in text:
+                score += 1
+        if score > best_score:
+            best_score = score
+            best_model = model_name
+
+    if best_score >= 3:
+        return best_model, min(best_score * 15, 95)
+    return None, 0
+
+
+def knowledge_gap_score(title: str, description: str = '', detected_model: str = None) -> int:
+    """
+    Calcule à quel point le vendeur semble ignorer la valeur de l'objet (0-100).
+    Plus le score est élevé, plus le vendeur est probablement non-expert.
+    """
+    text = (title + ' ' + description).lower()
+    score = 0
+
+    if any(g in title.lower() for g in GENERIC_TITLES):
+        score += 20
+
+    if any(p in text for p in UNCERTAIN_PHRASES):
+        score += 25
+
+    if detected_model and detected_model in PREMIUM_FURNITURE:
+        brand = PREMIUM_FURNITURE[detected_model]['brand']
+        if brand not in title.lower():
+            score += 20
+        model_short = detected_model.split()[-1]
+        if model_short not in title.lower():
+            score += 15
+
+    if len(title.split()) <= 3:
+        score += 8
+
+    if len(description.strip()) < 40:
+        score += 6
+
+    return min(score, 100)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CACHE BACKMARKET
+# ─────────────────────────────────────────────────────────────────────────────
 
 def get_headers():
     return random.choice(HEADERS_POOL)
@@ -180,16 +328,7 @@ def extract_price(text):
     return None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SCRAPING BACKMARKET EN TEMPS RÉEL
-# ─────────────────────────────────────────────────────────────────────────────
-
 def scrape_backmarket_price(product_name: str) -> float | None:
-    """
-    Scrape le prix 'Bon état' de BackMarket pour un produit donné.
-    Retourne le prix minimum trouvé, ou None si échec.
-    Cache le résultat 6h en mémoire.
-    """
     now = time.time()
     with _bm_cache_lock:
         ts = _bm_cache_ts.get(product_name, 0)
@@ -198,7 +337,6 @@ def scrape_backmarket_price(product_name: str) -> float | None:
 
     try:
         query = requests.utils.quote(product_name)
-        # BackMarket recherche + filtre "bon état" (grade=9 = bon état)
         url = f'https://www.backmarket.fr/fr-fr/search?q={query}&grade=9'
         headers = get_headers()
         headers['Accept-Language'] = 'fr-FR,fr;q=0.9'
@@ -211,22 +349,17 @@ def scrape_backmarket_price(product_name: str) -> float | None:
             return None
 
         soup = BeautifulSoup(resp.text, 'html5lib')
-
-        # Sélecteurs BackMarket (plusieurs tentatives pour robustesse)
         price_candidates = []
 
-        # Méthode 1 : balises de prix structurées
         for el in soup.select('[data-qa="product-price"], [class*="price"], [class*="Price"]'):
             txt = el.get_text(strip=True)
             p = extract_price(txt)
             if p and 10 < p < 20000:
                 price_candidates.append(p)
 
-        # Méthode 2 : recherche dans le JSON embarqué (Next.js __NEXT_DATA__)
         if not price_candidates:
             script = soup.find('script', {'id': '__NEXT_DATA__'})
             if script and script.string:
-                # Extraction rapide sans parser tout le JSON
                 matches = re.findall(r'"price"\s*:\s*"?([\d]+\.?[\d]*)"?', script.string)
                 for m in matches:
                     try:
@@ -251,10 +384,6 @@ def scrape_backmarket_price(product_name: str) -> float | None:
 
 
 def prefetch_backmarket_prices(product_names: list):
-    """
-    Pré-charge les prix BackMarket en arrière-plan pour une liste de produits.
-    Appelé au démarrage de l'app pour alimenter le cache.
-    """
     def _fetch_all():
         for name in product_names:
             now = time.time()
@@ -263,7 +392,7 @@ def prefetch_backmarket_prices(product_names: list):
                 already_fresh = now - ts < BM_CACHE_TTL and name in _bm_price_cache
             if not already_fresh:
                 scrape_backmarket_price(name)
-                time.sleep(random.uniform(1.0, 2.0))  # respectueux du serveur
+                time.sleep(random.uniform(1.0, 2.0))
 
     t = threading.Thread(target=_fetch_all, daemon=True)
     t.start()
@@ -271,22 +400,14 @@ def prefetch_backmarket_prices(product_names: list):
 
 
 def get_ref_price(product_name: str):
-    """
-    Retourne le prix de référence pour un produit.
-    - Pour les produits du catalogue BackMarket : prix live (avec fallback sur le cache)
-    - Pour les produits fixes : valeur codée
-    Retourne aussi la source du prix ('live' | 'fixed' | 'fallback')
-    """
     if product_name in BACKMARKET_CATALOG:
         live = scrape_backmarket_price(product_name)
         if live:
             return live, 'live'
-        # Fallback : dernière valeur connue en cache même expirée
         with _bm_cache_lock:
             cached = _bm_price_cache.get(product_name)
         if cached:
             return cached, 'fallback'
-        # Fallback absolu : prix estimés de secours (jamais affichés sans label)
         _emergency = {
             'iphone 16 pro': 950, 'iphone 16': 720, 'iphone 15 pro': 820,
             'iphone 15': 580, 'iphone 14 pro': 600, 'iphone 14': 430,
@@ -313,6 +434,9 @@ def get_ref_price(product_name: str):
     if product_name in FIXED_PRICES:
         return FIXED_PRICES[product_name]['ref_price'], 'fixed'
 
+    if product_name in PREMIUM_FURNITURE:
+        return PREMIUM_FURNITURE[product_name]['market_price'], 'fixed'
+
     return 0, 'unknown'
 
 
@@ -320,7 +444,6 @@ def get_ref_price(product_name: str):
 # DÉTECTION D'OBJETS + CALCUL DU DEAL
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Base de tous les objets connus (BM + fixes)
 ALL_OBJECTS = {}
 for name, data in BACKMARKET_CATALOG.items():
     ALL_OBJECTS[name] = data
@@ -329,7 +452,6 @@ for name, data in FIXED_PRICES.items():
 
 
 def detect_value_objects(title, description=''):
-    """Détecte les objets de valeur dans un texte, même caché dans un lot."""
     full_text = (title + ' ' + description).lower()
     detected = []
     seen = set()
@@ -397,7 +519,6 @@ class DealScraper:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(get_headers())
-        # Précharge les prix BM en arrière-plan au démarrage
         print('[BackMarket] Chargement des prix en arrière-plan...')
         prefetch_backmarket_prices(list(BACKMARKET_CATALOG.keys())[:20])
 
@@ -524,30 +645,67 @@ class DealScraper:
         deals = []
         for item in listings:
             title = item.get('title', '')
+            description = item.get('description', '')
             price = item.get('price')
             if not price:
                 continue
-            detected_objects, is_lot = detect_value_objects(title)
-            if not detected_objects:
-                continue
-            best_obj = max(detected_objects, key=lambda x: x['ref_price'])
-            discount_pct, score = calculate_deal_score(
-                price, best_obj['ref_price'], is_lot, len(detected_objects)
-            )
-            if discount_pct >= min_discount:
-                deals.append({
-                    **item,
-                    'detected_objects': detected_objects,
-                    'best_match': best_obj['name'],
-                    'ref_price': best_obj['ref_price'],
-                    'price_source': best_obj.get('price_source', 'fixed'),
-                    'category': best_obj['category'],
-                    'discount_pct': discount_pct,
-                    'deal_score': score,
-                    'is_lot': is_lot,
-                    'savings': round(best_obj['ref_price'] - price, 2)
+
+            # Détection mobilier premium méconnu
+            furniture_model, furniture_conf = detect_premium_furniture(title, description)
+            kg_score = knowledge_gap_score(title, description, furniture_model)
+
+            detected_objects, is_lot = detect_value_objects(title, description)
+
+            # Si on détecte du mobilier premium mais pas dans les objets normaux, on l'ajoute
+            if furniture_model and furniture_conf >= 30:
+                furniture_data = PREMIUM_FURNITURE[furniture_model]
+                ref_p = furniture_data['market_price']
+                detected_objects.append({
+                    'name': furniture_model,
+                    'ref_price': ref_p,
+                    'price_source': 'fixed',
+                    'category': furniture_data['category'],
+                    'confidence': furniture_conf
                 })
-        deals.sort(key=lambda x: x['deal_score'], reverse=True)
+
+            if not detected_objects:
+                # Si knowledge_gap élevé même sans objet détecté, signaler quand même
+                if kg_score >= 40 and furniture_model:
+                    pass
+                else:
+                    continue
+
+            if detected_objects:
+                best_obj = max(detected_objects, key=lambda x: x['ref_price'])
+                discount_pct, base_score = calculate_deal_score(
+                    price, best_obj['ref_price'], is_lot, len(detected_objects)
+                )
+
+                # Score final combiné : deal + ignorance vendeur
+                final_score = round(base_score * 0.55 + kg_score * 0.45)
+
+                if discount_pct >= min_discount or (furniture_model and kg_score >= 50):
+                    result = {
+                        **item,
+                        'detected_objects': detected_objects,
+                        'best_match': best_obj['name'],
+                        'ref_price': best_obj['ref_price'],
+                        'price_source': best_obj.get('price_source', 'fixed'),
+                        'category': best_obj['category'],
+                        'discount_pct': discount_pct,
+                        'deal_score': base_score,
+                        'final_opportunity_score': final_score,
+                        'knowledge_gap_score': kg_score,
+                        'is_lot': is_lot,
+                        'savings': round(best_obj['ref_price'] - price, 2),
+                        'vendor_unaware': kg_score >= 50,
+                    }
+                    if furniture_model:
+                        result['furniture_model'] = furniture_model
+                        result['furniture_confidence'] = furniture_conf
+                    deals.append(result)
+
+        deals.sort(key=lambda x: x.get('final_opportunity_score', x.get('deal_score', 0)), reverse=True)
         return deals
 
     def search_deals(self, keywords, min_discount=40, platforms=None):
@@ -569,10 +727,11 @@ class DealScraper:
         hunt_queries = [
             'lot electronique', 'lot telephone', 'iphone occasion',
             'montre collection', 'lot carte pokemon', 'lego boite',
-            'dyson aspirateur', 'lot divers vrac'
+            'dyson aspirateur', 'lot divers vrac',
+            'chaise bureau', 'fauteuil ergonomique', 'mobilier bureau'
         ]
         all_listings = []
-        for query in hunt_queries[:6]:
+        for query in hunt_queries[:8]:
             if 'leboncoin' in platforms:
                 all_listings += self.scrape_leboncoin(query, max_results=15)
             if 'ebay' in platforms:
@@ -599,7 +758,6 @@ class DealScraper:
         return cats
 
     def get_cache_status(self):
-        """Retourne l'état du cache BackMarket pour l'affichage dans l'UI."""
         now = time.time()
         with _bm_cache_lock:
             cached = [
