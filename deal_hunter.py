@@ -16,286 +16,514 @@ except ImportError:
     FUZZY_OK = False
 
 # ══════════════════════════════════════════════
-#  MOTS QUI INDIQUENT QUE CE N'EST PAS L'OBJET LUI-MÊME
-#  (pièces détachées, accessoires, coques, etc.)
+#  CONFIG API VISION (Google Vision - gratuit 1000 req/mois)
+#  1. Va sur https://console.cloud.google.com/
+#  2. Crée un projet → Active "Cloud Vision API"
+#  3. Crée une clé API → Colle-la ici
+# ══════════════════════════════════════════════
+GOOGLE_VISION_KEY = 'VOTRE_CLE_ICI'
+
+# ══════════════════════════════════════════════
+#  BLACKLIST ACCESSOIRES / PIÈCES DÉTACHÉES
 # ══════════════════════════════════════════════
 ACCESSORY_WORDS = [
-    'batterie', 'battery', 'coque', 'case', 'vitre', 'écran cassé', 'screen crack',
-    'chargeur', 'charger', 'câble', 'cable', 'adaptateur', 'pièce', 'piece',
-    'réparation', 'reparation', 'facade', 'nappe', 'dock', 'connecteur',
-    'protection', 'verre trempé', 'film', 'housse', 'etui', 'étui',
+    'batterie', 'battery', 'coque', 'case', 'vitre', 'ecran casse', 'screen crack',
+    'chargeur', 'charger', 'cable', 'adaptateur', 'piece detachee', 'piece de rechange',
+    'reparation', 'facade', 'nappe', 'dock', 'connecteur',
+    'protection', 'verre trempe', 'film protecteur', 'housse', 'etui',
     'cover', 'skin', 'sticker', 'autocollant', 'stylet', 'stylus',
-    'oreillette', 'écouteur', 'earbud', 'tip', 'embout',
-    'hs', 'hors service', 'pour pièces', 'pour piece', 'pour pieces',
-    'ne fonctionne pas', 'ne marche pas', 'cassé', 'casse', 'brisé', 'brise',
-    'broken', 'defective', 'défectueux', 'defectueux',
-    'manuel', 'mode emploi', 'notice', 'boite vide', 'empty box',
-    'stand', 'support', 'bras', 'holder', 'mount',
+    'oreillette', 'ecouteur', 'earbud', 'embout',
+    'hors service', 'pour pieces', 'ne fonctionne pas', 'ne marche pas',
+    'casse', 'brise', 'broken', 'defectueux', 'defectif',
+    'mode emploi', 'boite vide', 'empty box', 'boite seule',
+    'chargeur seul', 'cable seul', 'adaptateur seul',
+    # Spécifiques mobiles
+    'sim', 'sim tray', 'tiroir sim', 'bouton', 'power button',
+    'vitre arriere', 'vitre avant', 'chassis', 'cadre',
 ]
 
 # ══════════════════════════════════════════════
-#  BASE DE DONNÉES DES OBJETS DE VALEUR
-#  Chaque objet a : ref (prix marché), kw (mots-clés), cat,
-#  context (mots qui CONFIRMENT que c'est bien l'objet),
-#  variants (noms alternatifs reconnus)
+#  BASE DE DONNÉES — PRIX BACKMARKET (reconditionné "Bon état" FR, juil. 2026)
+#  Source : prix moyens constatés sur BackMarket.fr
 # ══════════════════════════════════════════════
 VALUE_OBJECTS = {
-    # ── TÉLÉPHONES
-    'iphone 15 pro': {'ref': 1100, 'cat': 'Téléphones',
-        'kw': ['iphone','15 pro','apple'],
-        'context': ['débloqué','reconditionné','128gb','256gb','occasion','vendu','fonctionne','état'],
-        'variants': ['i phone 15pro','iphone15pro']},
-    'iphone 14':     {'ref': 650,  'cat': 'Téléphones',
-        'kw': ['iphone','14'],
-        'context': ['débloqué','reconditionné','128gb','occasion','fonctionne','état'],
-        'variants': ['iphone14','i phone 14']},
-    'iphone 13':     {'ref': 480,  'cat': 'Téléphones',
-        'kw': ['iphone','13'],
-        'context': ['débloqué','reconditionné','occasion','fonctionne'],
-        'variants': ['iphone13']},
-    'iphone 12':     {'ref': 320,  'cat': 'Téléphones',
-        'kw': ['iphone','12'],
-        'context': ['débloqué','occasion','fonctionne'],
-        'variants': ['iphone12']},
-    'samsung s24':   {'ref': 850,  'cat': 'Téléphones',
-        'kw': ['samsung','s24','galaxy'],
-        'context': ['débloqué','occasion','fonctionne'],
-        'variants': ['galaxy s24']},
-    'samsung s23':   {'ref': 600,  'cat': 'Téléphones',
-        'kw': ['samsung','s23','galaxy'],
-        'context': ['débloqué','occasion'],
-        'variants': ['galaxy s23']},
 
-    # ── ORDINATEURS
-    'macbook pro':   {'ref': 1800, 'cat': 'Ordinateurs',
-        'kw': ['macbook','pro','apple'],
-        'context': ['m1','m2','m3','intel','retina','occasion','fonctionnel'],
-        'variants': ['mac book pro','mbp']},
-    'macbook air':   {'ref': 1100, 'cat': 'Ordinateurs',
-        'kw': ['macbook','air','apple'],
-        'context': ['m1','m2','occasion','fonctionnel'],
-        'variants': ['mac book air','mba']},
-    'dell xps':      {'ref': 1200, 'cat': 'Ordinateurs',
-        'kw': ['dell','xps'],
-        'context': ['i7','i9','intel','occasion','fonctionnel'],
-        'variants': ['dell xps 15','dell xps 13']},
-    'thinkpad':      {'ref': 900,  'cat': 'Ordinateurs',
-        'kw': ['lenovo','thinkpad'],
-        'context': ['i7','i5','occasion','professionnel'],
-        'variants': ['think pad','ibm thinkpad']},
+    # ── TÉLÉPHONES (prix BackMarket "Bon état" moyen)
+    'iphone 15 pro max': {'ref': 980, 'cat': 'Téléphones',
+        'kw': ['iphone', '15 pro max'],
+        'context': ['débloqué', 'reconditionné', '256gb', '512gb', 'occasion', 'fonctionne'],
+        'variants': ['iphone15promax', 'i phone 15 pro max']},
+    'iphone 15 pro':  {'ref': 820, 'cat': 'Téléphones',
+        'kw': ['iphone', '15 pro'],
+        'context': ['débloqué', 'reconditionné', '128gb', 'occasion', 'fonctionne'],
+        'variants': ['iphone15pro']},
+    'iphone 15':      {'ref': 620, 'cat': 'Téléphones',
+        'kw': ['iphone', '15'],
+        'context': ['débloqué', 'reconditionné', 'occasion', 'fonctionne'],
+        'variants': ['iphone15']},
+    'iphone 14 pro':  {'ref': 640, 'cat': 'Téléphones',
+        'kw': ['iphone', '14 pro'],
+        'context': ['débloqué', 'reconditionné', 'occasion', 'fonctionne'],
+        'variants': ['iphone14pro']},
+    'iphone 14':      {'ref': 460, 'cat': 'Téléphones',
+        'kw': ['iphone', '14'],
+        'context': ['débloqué', 'reconditionné', 'occasion', 'fonctionne'],
+        'variants': ['iphone14', 'i phone 14']},
+    'iphone 13 pro':  {'ref': 440, 'cat': 'Téléphones',
+        'kw': ['iphone', '13 pro'],
+        'context': ['débloqué', 'reconditionné', 'occasion'],
+        'variants': ['iphone13pro']},
+    'iphone 13':      {'ref': 310, 'cat': 'Téléphones',
+        'kw': ['iphone', '13'],
+        'context': ['débloqué', 'reconditionné', 'occasion'],
+        'variants': ['iphone13']},
+    'iphone 12 pro':  {'ref': 280, 'cat': 'Téléphones',
+        'kw': ['iphone', '12 pro'],
+        'context': ['débloqué', 'occasion'],
+        'variants': ['iphone12pro']},
+    'iphone 12':      {'ref': 210, 'cat': 'Téléphones',
+        'kw': ['iphone', '12'],
+        'context': ['débloqué', 'occasion', 'fonctionne'],
+        'variants': ['iphone12']},
+    'iphone 11':      {'ref': 150, 'cat': 'Téléphones',
+        'kw': ['iphone', '11'],
+        'context': ['débloqué', 'occasion', 'fonctionne'],
+        'variants': ['iphone11']},
+    'iphone xr':      {'ref': 130, 'cat': 'Téléphones',
+        'kw': ['iphone', 'xr'],
+        'context': ['débloqué', 'occasion', 'fonctionne'],
+        'variants': ['iphonexr', 'iphone x r']},
+    'iphone xs':      {'ref': 120, 'cat': 'Téléphones',
+        'kw': ['iphone', 'xs'],
+        'context': ['débloqué', 'occasion'],
+        'variants': ['iphonexs']},
+    'iphone x':       {'ref': 110, 'cat': 'Téléphones',
+        'kw': ['iphone', ' x '],
+        'context': ['débloqué', 'occasion'],
+        'variants': ['iphone x 64', 'iphone x 256']},
+    'samsung s24 ultra': {'ref': 920, 'cat': 'Téléphones',
+        'kw': ['samsung', 's24 ultra', 'galaxy'],
+        'context': ['débloqué', 'occasion', 'fonctionne'],
+        'variants': ['galaxy s24 ultra']},
+    'samsung s24':    {'ref': 600, 'cat': 'Téléphones',
+        'kw': ['samsung', 's24', 'galaxy'],
+        'context': ['débloqué', 'occasion'],
+        'variants': ['galaxy s24']},
+    'samsung s23':    {'ref': 420, 'cat': 'Téléphones',
+        'kw': ['samsung', 's23', 'galaxy'],
+        'context': ['débloqué', 'occasion'],
+        'variants': ['galaxy s23']},
+    'samsung s22':    {'ref': 290, 'cat': 'Téléphones',
+        'kw': ['samsung', 's22', 'galaxy'],
+        'context': ['débloqué', 'occasion'],
+        'variants': ['galaxy s22']},
+    'pixel 8 pro':    {'ref': 530, 'cat': 'Téléphones',
+        'kw': ['google', 'pixel 8 pro'],
+        'context': ['débloqué', 'occasion'],
+        'variants': []},
+    'pixel 7 pro':    {'ref': 350, 'cat': 'Téléphones',
+        'kw': ['google', 'pixel 7 pro'],
+        'context': ['débloqué', 'occasion'],
+        'variants': []},
+
+    # ── ORDINATEURS (prix BackMarket)
+    'macbook pro m3': {'ref': 1650, 'cat': 'Ordinateurs',
+        'kw': ['macbook', 'pro', 'm3'],
+        'context': ['m3', 'occasion', 'fonctionnel'],
+        'variants': ['macbook pro m3 pro', 'macbook pro m3 max']},
+    'macbook pro m2': {'ref': 1250, 'cat': 'Ordinateurs',
+        'kw': ['macbook', 'pro', 'm2'],
+        'context': ['m2', 'occasion', 'fonctionnel'],
+        'variants': ['mbp m2']},
+    'macbook pro m1': {'ref': 950,  'cat': 'Ordinateurs',
+        'kw': ['macbook', 'pro', 'm1'],
+        'context': ['m1', 'occasion', 'fonctionnel'],
+        'variants': ['mbp m1']},
+    'macbook air m2': {'ref': 900,  'cat': 'Ordinateurs',
+        'kw': ['macbook', 'air', 'm2'],
+        'context': ['m2', 'occasion'],
+        'variants': ['mba m2']},
+    'macbook air m1': {'ref': 680,  'cat': 'Ordinateurs',
+        'kw': ['macbook', 'air', 'm1'],
+        'context': ['m1', 'occasion'],
+        'variants': ['mba m1']},
+    'macbook pro intel': {'ref': 700, 'cat': 'Ordinateurs',
+        'kw': ['macbook', 'pro', 'intel'],
+        'context': ['i7', 'i9', 'intel', 'occasion'],
+        'variants': ['macbook pro 2019', 'macbook pro 2020']},
+    'dell xps 15':    {'ref': 900,  'cat': 'Ordinateurs',
+        'kw': ['dell', 'xps', '15'],
+        'context': ['i7', 'i9', 'occasion', 'fonctionnel'],
+        'variants': ['xps15']},
+    'dell xps 13':    {'ref': 650,  'cat': 'Ordinateurs',
+        'kw': ['dell', 'xps', '13'],
+        'context': ['i7', 'occasion', 'fonctionnel'],
+        'variants': ['xps13']},
+    'thinkpad x1':    {'ref': 700,  'cat': 'Ordinateurs',
+        'kw': ['lenovo', 'thinkpad', 'x1'],
+        'context': ['i7', 'i5', 'occasion', 'professionnel'],
+        'variants': ['thinkpad x1 carbon', 'x1 carbon']},
+    'thinkpad t14':   {'ref': 480,  'cat': 'Ordinateurs',
+        'kw': ['lenovo', 'thinkpad', 't14'],
+        'context': ['i7', 'i5', 'occasion'],
+        'variants': []},
+    'surface pro':    {'ref': 650,  'cat': 'Ordinateurs',
+        'kw': ['microsoft', 'surface pro'],
+        'context': ['i5', 'i7', 'occasion', 'fonctionnel'],
+        'variants': ['surface pro 9', 'surface pro 8']},
 
     # ── GAMING
-    'ps5':           {'ref': 500,  'cat': 'Gaming',
-        'kw': ['ps5','playstation 5'],
-        'context': ['console','manette','edition','slim','digital','disc','fonctionnel'],
-        'variants': ['playstation5','ps 5']},
-    'xbox series x': {'ref': 500,  'cat': 'Gaming',
-        'kw': ['xbox','series x'],
-        'context': ['console','microsoft','fonctionnel'],
+    'ps5 slim':       {'ref': 400,  'cat': 'Gaming',
+        'kw': ['ps5', 'slim'],
+        'context': ['console', 'sony', 'fonctionnel', 'manette'],
+        'variants': ['playstation 5 slim']},
+    'ps5':            {'ref': 380,  'cat': 'Gaming',
+        'kw': ['ps5', 'playstation 5'],
+        'context': ['console', 'manette', 'fonctionnel'],
+        'variants': ['playstation5', 'ps 5']},
+    'xbox series x':  {'ref': 380,  'cat': 'Gaming',
+        'kw': ['xbox', 'series x'],
+        'context': ['console', 'microsoft', 'fonctionnel'],
         'variants': ['xbox seriesx']},
-    'switch oled':   {'ref': 320,  'cat': 'Gaming',
-        'kw': ['switch','nintendo','oled'],
-        'context': ['console','jeu','fonctionnel'],
+    'switch oled':    {'ref': 260,  'cat': 'Gaming',
+        'kw': ['switch', 'nintendo', 'oled'],
+        'context': ['console', 'fonctionnel'],
         'variants': ['nintendo switch oled']},
-    'steam deck':    {'ref': 420,  'cat': 'Gaming',
-        'kw': ['steam','deck','valve'],
-        'context': ['portable','gaming','fonctionnel'],
+    'switch':         {'ref': 180,  'cat': 'Gaming',
+        'kw': ['switch', 'nintendo'],
+        'context': ['console', 'fonctionnel', 'jeux'],
+        'variants': ['nintendo switch v2']},
+    'steam deck oled': {'ref': 480, 'cat': 'Gaming',
+        'kw': ['steam', 'deck', 'oled'],
+        'context': ['portable', 'gaming', 'fonctionnel'],
+        'variants': []},
+    'steam deck':     {'ref': 320,  'cat': 'Gaming',
+        'kw': ['steam', 'deck'],
+        'context': ['portable', 'gaming', 'fonctionnel'],
         'variants': ['steamdeck']},
 
     # ── AUDIO
-    'airpods pro':   {'ref': 230,  'cat': 'Audio',
-        'kw': ['airpods','pro','apple'],
-        'context': ['anc','noise','occasion','boite'],
+    'airpods pro 2':  {'ref': 190,  'cat': 'Audio',
+        'kw': ['airpods', 'pro', '2ème', '2nd', '2'],
+        'context': ['anc', 'occasion', 'boite'],
+        'variants': ['airpods pro 2eme generation']},
+    'airpods pro':    {'ref': 150,  'cat': 'Audio',
+        'kw': ['airpods', 'pro'],
+        'context': ['anc', 'occasion', 'boite', 'etui'],
         'variants': ['air pods pro']},
-    'sony xm5':      {'ref': 330,  'cat': 'Audio',
-        'kw': ['sony','xm5'],
-        'context': ['casque','anc','occasion'],
-        'variants': ['wh-1000xm5','xm 5']},
-    'sony xm4':      {'ref': 220,  'cat': 'Audio',
-        'kw': ['sony','xm4'],
-        'context': ['casque','anc','occasion'],
-        'variants': ['wh-1000xm4']},
-    'bose qc45':     {'ref': 280,  'cat': 'Audio',
-        'kw': ['bose','qc45','quietcomfort'],
-        'context': ['casque','anc','occasion'],
-        'variants': ['quiet comfort 45']},
+    'airpods 3':      {'ref': 110,  'cat': 'Audio',
+        'kw': ['airpods', '3ème', '3eme', 'troisième'],
+        'context': ['occasion', 'boite'],
+        'variants': ['airpods 3eme generation']},
+    'sony wh-1000xm5': {'ref': 250, 'cat': 'Audio',
+        'kw': ['sony', 'xm5', 'wh-1000xm5'],
+        'context': ['casque', 'anc', 'occasion'],
+        'variants': ['xm 5', '1000xm5']},
+    'sony wh-1000xm4': {'ref': 170, 'cat': 'Audio',
+        'kw': ['sony', 'xm4', 'wh-1000xm4'],
+        'context': ['casque', 'anc', 'occasion'],
+        'variants': ['xm 4']},
+    'bose qc45':      {'ref': 200,  'cat': 'Audio',
+        'kw': ['bose', 'qc45', 'quietcomfort'],
+        'context': ['casque', 'anc', 'occasion'],
+        'variants': ['quiet comfort 45', 'qc 45']},
+    'bose qc35':      {'ref': 120,  'cat': 'Audio',
+        'kw': ['bose', 'qc35'],
+        'context': ['casque', 'occasion'],
+        'variants': ['quiet comfort 35']},
 
-    # ── PHOTO
-    'gopro hero':    {'ref': 350,  'cat': 'Photo',
-        'kw': ['gopro','hero'],
-        'context': ['action','caméra','4k','occasion'],
-        'variants': ['go pro hero']},
-    'canon eos r':   {'ref': 1400, 'cat': 'Photo',
-        'kw': ['canon','eos','r5','r6','r7'],
-        'context': ['boitier','hybride','occasion','professionnel'],
-        'variants': ['canon eos r5','canon eos r6']},
-    'sony alpha':    {'ref': 1800, 'cat': 'Photo',
-        'kw': ['sony','alpha','a7'],
-        'context': ['boitier','hybride','occasion','professionnel'],
-        'variants': ['sony a7','alpha 7']},
-    'leica':         {'ref': 3000, 'cat': 'Photo',
-        'kw': ['leica'],
-        'context': ['appareil','boitier','occasion'],
-        'variants': ['leica m10','leica q2']},
-    'fujifilm x':    {'ref': 800,  'cat': 'Photo',
-        'kw': ['fujifilm','fuji','xt','xpro','x100'],
-        'context': ['boitier','hybride','occasion'],
-        'variants': ['fuji x-t4','fujifilm x100']},
+    # ── PHOTO / VIDÉO
+    'gopro hero 12':  {'ref': 280,  'cat': 'Photo',
+        'kw': ['gopro', 'hero', '12'],
+        'context': ['camera', 'action', '4k', 'occasion'],
+        'variants': ['go pro hero12']},
+    'gopro hero 11':  {'ref': 210,  'cat': 'Photo',
+        'kw': ['gopro', 'hero', '11'],
+        'context': ['camera', '4k', 'occasion'],
+        'variants': []},
+    'gopro hero 10':  {'ref': 160,  'cat': 'Photo',
+        'kw': ['gopro', 'hero', '10'],
+        'context': ['camera', '4k', 'occasion'],
+        'variants': []},
+    'canon eos r6':   {'ref': 1600, 'cat': 'Photo',
+        'kw': ['canon', 'eos', 'r6'],
+        'context': ['boitier', 'hybride', 'occasion'],
+        'variants': ['eos r6 mark ii']},
+    'canon eos r5':   {'ref': 2500, 'cat': 'Photo',
+        'kw': ['canon', 'eos', 'r5'],
+        'context': ['boitier', 'hybride', 'occasion'],
+        'variants': []},
+    'sony a7 iv':     {'ref': 2100, 'cat': 'Photo',
+        'kw': ['sony', 'alpha', 'a7 iv', 'a7iv'],
+        'context': ['boitier', 'occasion'],
+        'variants': ['sony a7iv']},
+    'sony a7 iii':    {'ref': 1300, 'cat': 'Photo',
+        'kw': ['sony', 'alpha', 'a7 iii', 'a7iii'],
+        'context': ['boitier', 'occasion'],
+        'variants': ['sony a7iii']},
+    'fujifilm x-t5':  {'ref': 1400, 'cat': 'Photo',
+        'kw': ['fujifilm', 'x-t5', 'xt5'],
+        'context': ['boitier', 'occasion'],
+        'variants': ['fuji xt5']},
+    'fujifilm x100v': {'ref': 1100, 'cat': 'Photo',
+        'kw': ['fujifilm', 'x100v', 'x100'],
+        'context': ['appareil', 'occasion'],
+        'variants': ['fuji x100v']},
+    'leica q2':       {'ref': 3800, 'cat': 'Photo',
+        'kw': ['leica', 'q2'],
+        'context': ['appareil', 'occasion'],
+        'variants': []},
+    'leica m11':      {'ref': 6500, 'cat': 'Photo',
+        'kw': ['leica', 'm11'],
+        'context': ['appareil', 'telemetrique', 'occasion'],
+        'variants': []},
+    'dji mini 4 pro': {'ref': 620,  'cat': 'Photo',
+        'kw': ['dji', 'mini', '4 pro'],
+        'context': ['drone', 'occasion', 'fonctionnel'],
+        'variants': []},
+    'dji air 3':      {'ref': 850,  'cat': 'Photo',
+        'kw': ['dji', 'air', '3'],
+        'context': ['drone', 'occasion'],
+        'variants': ['dji air3']},
+    'insta360 x4':    {'ref': 380,  'cat': 'Photo',
+        'kw': ['insta360', 'x4'],
+        'context': ['camera', '360', 'occasion'],
+        'variants': []},
 
     # ── ÉLECTROMÉNAGER
-    'dyson v15':     {'ref': 650,  'cat': 'Électroménager',
-        'kw': ['dyson','v15'],
-        'context': ['aspirateur','detect','fonctionnel','occasion'],
-        'variants': ['dyson detect']},
-    'dyson v11':     {'ref': 450,  'cat': 'Électroménager',
-        'kw': ['dyson','v11'],
-        'context': ['aspirateur','fonctionnel','occasion'],
+    'dyson v15 detect': {'ref': 500, 'cat': 'Électroménager',
+        'kw': ['dyson', 'v15'],
+        'context': ['aspirateur', 'detect', 'fonctionnel', 'occasion'],
+        'variants': ['dyson v15 detect absolute']},
+    'dyson v12':      {'ref': 380,  'cat': 'Électroménager',
+        'kw': ['dyson', 'v12'],
+        'context': ['aspirateur', 'fonctionnel', 'occasion'],
         'variants': []},
-    'dyson airwrap': {'ref': 500,  'cat': 'Électroménager',
-        'kw': ['dyson','airwrap'],
-        'context': ['coiffeur','coffret','fonctionnel'],
-        'variants': ['air wrap']},
-    'thermomix tm6': {'ref': 1200, 'cat': 'Électroménager',
-        'kw': ['thermomix','tm6','vorwerk'],
-        'context': ['robot','cuisine','fonctionnel'],
-        'variants': ['tm 6']},
-    'kenwood chef':  {'ref': 600,  'cat': 'Électroménager',
-        'kw': ['kenwood','chef','titanium'],
-        'context': ['robot','cuisine','fonctionnel'],
+    'dyson v11':      {'ref': 300,  'cat': 'Électroménager',
+        'kw': ['dyson', 'v11'],
+        'context': ['aspirateur', 'fonctionnel'],
+        'variants': []},
+    'dyson airwrap':  {'ref': 450,  'cat': 'Électroménager',
+        'kw': ['dyson', 'airwrap'],
+        'context': ['coiffeur', 'coffret', 'fonctionnel'],
+        'variants': ['air wrap dyson']},
+    'thermomix tm6':  {'ref': 950,  'cat': 'Électroménager',
+        'kw': ['thermomix', 'tm6', 'vorwerk'],
+        'context': ['robot', 'cuisine', 'fonctionnel'],
+        'variants': ['tm 6', 'thermomix tm 6']},
+    'thermomix tm5':  {'ref': 600,  'cat': 'Électroménager',
+        'kw': ['thermomix', 'tm5', 'vorwerk'],
+        'context': ['robot', 'cuisine'],
+        'variants': ['tm 5']},
+    'kenwood chef titanium': {'ref': 500, 'cat': 'Électroménager',
+        'kw': ['kenwood', 'chef', 'titanium'],
+        'context': ['robot', 'cuisine', 'fonctionnel'],
         'variants': ['kenwood titanium']},
+    'kitchenaid artisan': {'ref': 400, 'cat': 'Électroménager',
+        'kw': ['kitchenaid', 'artisan'],
+        'context': ['robot', 'cuisine', 'occasion'],
+        'variants': ['kitchen aid artisan']},
 
-    # ── MOBILIER BUREAU DE VALEUR (revendeurs qui ne savent pas)
+    # ── TABLETTES
+    'ipad pro m4':    {'ref': 900,  'cat': 'Tablettes',
+        'kw': ['ipad', 'pro', 'm4'],
+        'context': ['tablette', 'occasion'],
+        'variants': ['ipad pro 11 m4', 'ipad pro 13 m4']},
+    'ipad pro m2':    {'ref': 720,  'cat': 'Tablettes',
+        'kw': ['ipad', 'pro', 'm2'],
+        'context': ['tablette', 'occasion'],
+        'variants': ['ipad pro 11 m2']},
+    'ipad air m2':    {'ref': 520,  'cat': 'Tablettes',
+        'kw': ['ipad', 'air', 'm2'],
+        'context': ['tablette', 'occasion'],
+        'variants': []},
+    'ipad air':       {'ref': 400,  'cat': 'Tablettes',
+        'kw': ['ipad', 'air'],
+        'context': ['tablette', 'occasion'],
+        'variants': ['ipad air 5', 'ipad air 4']},
+    'samsung tab s9': {'ref': 550,  'cat': 'Tablettes',
+        'kw': ['samsung', 'tab', 's9', 'galaxy tab'],
+        'context': ['tablette', 'occasion'],
+        'variants': ['galaxy tab s9']},
+
+    # ── MOBILIER BUREAU PREMIUM (destockage entreprise)
     'herman miller aeron': {'ref': 1400, 'cat': 'Mobilier bureau',
-        'kw': ['herman miller','aeron'],
-        'context': ['chaise','fauteuil','ergonomique','bureau','occasion'],
-        'variants': ['herman-miller aeron','hm aeron']},
+        'kw': ['herman miller', 'aeron'],
+        'context': ['chaise', 'fauteuil', 'ergonomique', 'bureau', 'occasion'],
+        'variants': ['herman-miller aeron', 'hm aeron', 'aeron taille b', 'aeron taille c']},
     'herman miller embody': {'ref': 1600, 'cat': 'Mobilier bureau',
-        'kw': ['herman miller','embody'],
-        'context': ['chaise','fauteuil','ergonomique','bureau'],
+        'kw': ['herman miller', 'embody'],
+        'context': ['chaise', 'fauteuil', 'bureau'],
         'variants': ['hm embody']},
-    'herman miller mirra': {'ref': 700, 'cat': 'Mobilier bureau',
-        'kw': ['herman miller','mirra'],
-        'context': ['chaise','fauteuil','bureau'],
-        'variants': ['hm mirra']},
-    'steelcase leap': {'ref': 1100, 'cat': 'Mobilier bureau',
-        'kw': ['steelcase','leap'],
-        'context': ['chaise','fauteuil','ergonomique','bureau'],
-        'variants': ['steel case leap','steelcase v2']},
-    'steelcase think': {'ref': 900, 'cat': 'Mobilier bureau',
-        'kw': ['steelcase','think'],
-        'context': ['chaise','fauteuil','bureau'],
+    'herman miller mirra': {'ref': 700,  'cat': 'Mobilier bureau',
+        'kw': ['herman miller', 'mirra'],
+        'context': ['chaise', 'fauteuil', 'bureau'],
+        'variants': ['hm mirra', 'mirra 2']},
+    'herman miller cosm': {'ref': 1300, 'cat': 'Mobilier bureau',
+        'kw': ['herman miller', 'cosm'],
+        'context': ['chaise', 'fauteuil', 'bureau'],
         'variants': []},
-    'vitra eames':   {'ref': 800,  'cat': 'Mobilier bureau',
-        'kw': ['vitra','eames'],
-        'context': ['chaise','fauteuil','bureau','design','occasion'],
-        'variants': ['eames chair','eames daw','eames dsr']},
-    'vitra hal':     {'ref': 500,  'cat': 'Mobilier bureau',
-        'kw': ['vitra','hal'],
-        'context': ['chaise','bureau','design'],
+    'steelcase leap v2':  {'ref': 950,  'cat': 'Mobilier bureau',
+        'kw': ['steelcase', 'leap'],
+        'context': ['chaise', 'fauteuil', 'bureau', 'ergonomique'],
+        'variants': ['steelcase leap v2', 'leap v2']},
+    'steelcase gesture':  {'ref': 1100, 'cat': 'Mobilier bureau',
+        'kw': ['steelcase', 'gesture'],
+        'context': ['chaise', 'fauteuil', 'bureau'],
         'variants': []},
-    'knoll barcelona': {'ref': 2000, 'cat': 'Mobilier bureau',
-        'kw': ['knoll','barcelona'],
-        'context': ['fauteuil','chaise','design','occasion'],
-        'variants': ['chaise barcelona','barcelona chair']},
-    'knoll tulip':   {'ref': 700,  'cat': 'Mobilier bureau',
-        'kw': ['knoll','saarinen','tulip'],
-        'context': ['chaise','design','occasion'],
-        'variants': ['tulip chair']},
-    'humanscale freedom': {'ref': 800, 'cat': 'Mobilier bureau',
-        'kw': ['humanscale','freedom'],
-        'context': ['chaise','fauteuil','ergonomique','bureau'],
+    'steelcase think':    {'ref': 700,  'cat': 'Mobilier bureau',
+        'kw': ['steelcase', 'think'],
+        'context': ['chaise', 'fauteuil', 'bureau'],
         'variants': []},
-    'bureau assis debout': {'ref': 900, 'cat': 'Mobilier bureau',
-        'kw': ['assis debout','standing desk','elektrisch','sit stand'],
-        'context': ['bureau','motorisé','électrique','occasion'],
-        'variants': ['bureau réglable','flexispot','uplift desk','autonomous desk']},
-    'flexispot':     {'ref': 550,  'cat': 'Mobilier bureau',
-        'kw': ['flexispot'],
-        'context': ['bureau','motorisé','occasion'],
+    'vitra eames daw':    {'ref': 700,  'cat': 'Mobilier bureau',
+        'kw': ['vitra', 'eames', 'daw'],
+        'context': ['chaise', 'design', 'bureau'],
+        'variants': ['eames daw', 'eames plastic arm chair']},
+    'vitra eames dsw':    {'ref': 600,  'cat': 'Mobilier bureau',
+        'kw': ['vitra', 'eames', 'dsw'],
+        'context': ['chaise', 'design'],
+        'variants': ['eames dsw']},
+    'vitra hal':          {'ref': 450,  'cat': 'Mobilier bureau',
+        'kw': ['vitra', 'hal'],
+        'context': ['chaise', 'bureau', 'design'],
         'variants': []},
+    'knoll barcelona':    {'ref': 2000, 'cat': 'Mobilier bureau',
+        'kw': ['knoll', 'barcelona'],
+        'context': ['fauteuil', 'chaise', 'design', 'occasion'],
+        'variants': ['fauteuil barcelona', 'barcelona chair']},
+    'knoll tulip':        {'ref': 700,  'cat': 'Mobilier bureau',
+        'kw': ['knoll', 'saarinen', 'tulip'],
+        'context': ['chaise', 'design'],
+        'variants': ['tulip chair', 'saarinen tulip']},
+    'humanscale freedom': {'ref': 800,  'cat': 'Mobilier bureau',
+        'kw': ['humanscale', 'freedom'],
+        'context': ['chaise', 'fauteuil', 'bureau'],
+        'variants': []},
+    'secretlab titan':    {'ref': 380,  'cat': 'Mobilier bureau',
+        'kw': ['secretlab', 'titan'],
+        'context': ['chaise', 'gaming', 'bureau'],
+        'variants': ['secret lab titan']},
+    'flexispot e7':       {'ref': 420,  'cat': 'Mobilier bureau',
+        'kw': ['flexispot', 'e7'],
+        'context': ['bureau', 'assis debout', 'motorisé'],
+        'variants': []},
+    'bureau assis debout': {'ref': 500, 'cat': 'Mobilier bureau',
+        'kw': ['assis debout', 'sit stand', 'standing desk'],
+        'context': ['bureau', 'motorisé', 'électrique', 'occasion'],
+        'variants': ['bureau réglable', 'bureau electrique', 'bureau motorise']},
 
     # ── MONTRES
-    'rolex':         {'ref': 8000, 'cat': 'Montres',
-        'kw': ['rolex'],
-        'context': ['montre','submariner','datejust','oyster','acier','occasion'],
-        'variants': ['rolex submariner','rolex datejust','rolex gmt']},
-    'omega':         {'ref': 3000, 'cat': 'Montres',
-        'kw': ['omega','seamaster','speedmaster'],
-        'context': ['montre','acier','occasion'],
-        'variants': ['omega seamaster','omega speedmaster']},
-    'tag heuer':     {'ref': 1500, 'cat': 'Montres',
-        'kw': ['tag heuer','tag','heuer'],
-        'context': ['montre','carrera','occasion'],
-        'variants': ['tag-heuer']},
-    'casio gshock':  {'ref': 120,  'cat': 'Montres',
-        'kw': ['casio','g-shock','gshock'],
-        'context': ['montre','occasion'],
-        'variants': ['g shock']},
-    'seiko':         {'ref': 350,  'cat': 'Montres',
-        'kw': ['seiko'],
-        'context': ['montre','automatique','occasion'],
-        'variants': ['seiko 5','seiko prospex','seiko presage']},
+    'rolex submariner':   {'ref': 9500, 'cat': 'Montres',
+        'kw': ['rolex', 'submariner'],
+        'context': ['montre', 'acier', 'occasion', 'boite'],
+        'variants': ['rolex sub']},
+    'rolex datejust':     {'ref': 7000, 'cat': 'Montres',
+        'kw': ['rolex', 'datejust'],
+        'context': ['montre', 'acier', 'occasion'],
+        'variants': ['datejust 36', 'datejust 41']},
+    'rolex gmt master':   {'ref': 12000, 'cat': 'Montres',
+        'kw': ['rolex', 'gmt', 'master'],
+        'context': ['montre', 'occasion'],
+        'variants': ['rolex gmt-master', 'gmt master ii']},
+    'omega seamaster':    {'ref': 3200, 'cat': 'Montres',
+        'kw': ['omega', 'seamaster'],
+        'context': ['montre', 'acier', 'occasion'],
+        'variants': ['seamaster 300']},
+    'omega speedmaster':  {'ref': 4500, 'cat': 'Montres',
+        'kw': ['omega', 'speedmaster'],
+        'context': ['montre', 'occasion'],
+        'variants': ['moonwatch']},
+    'tag heuer carrera':  {'ref': 1800, 'cat': 'Montres',
+        'kw': ['tag heuer', 'carrera'],
+        'context': ['montre', 'occasion'],
+        'variants': ['tag-heuer carrera']},
+    'seiko presage':      {'ref': 320,  'cat': 'Montres',
+        'kw': ['seiko', 'presage'],
+        'context': ['montre', 'automatique', 'occasion'],
+        'variants': []},
+    'seiko prospex':      {'ref': 280,  'cat': 'Montres',
+        'kw': ['seiko', 'prospex'],
+        'context': ['montre', 'occasion'],
+        'variants': []},
+    'casio g-shock':      {'ref': 100,  'cat': 'Montres',
+        'kw': ['casio', 'g-shock'],
+        'context': ['montre', 'occasion'],
+        'variants': ['gshock', 'g shock']},
 
     # ── LUXE
-    'louis vuitton': {'ref': 900,  'cat': 'Luxe',
-        'kw': ['louis vuitton','vuitton','lv'],
-        'context': ['sac','pochette','portefeuille','occasion','cuir'],
-        'variants': ['louis vuition','lv bag']},
-    'chanel':        {'ref': 2000, 'cat': 'Luxe',
-        'kw': ['chanel'],
-        'context': ['sac','pochette','occasion','cuir'],
-        'variants': []},
-    'hermes birkin': {'ref': 8000, 'cat': 'Luxe',
-        'kw': ['hermes','birkin','kelly'],
-        'context': ['sac','cuir','occasion'],
-        'variants': ['hermès birkin','hermes kelly']},
+    'louis vuitton neverfull': {'ref': 1100, 'cat': 'Luxe',
+        'kw': ['louis vuitton', 'neverfull'],
+        'context': ['sac', 'occasion', 'cuir', 'authentique'],
+        'variants': ['lv neverfull']},
+    'louis vuitton speedy': {'ref': 700, 'cat': 'Luxe',
+        'kw': ['louis vuitton', 'speedy'],
+        'context': ['sac', 'occasion', 'cuir'],
+        'variants': ['lv speedy']},
+    'chanel classique':   {'ref': 5500, 'cat': 'Luxe',
+        'kw': ['chanel', 'classique', '2.55'],
+        'context': ['sac', 'occasion', 'cuir'],
+        'variants': ['chanel 2.55', 'chanel flap']},
+    'hermes birkin':      {'ref': 9000, 'cat': 'Luxe',
+        'kw': ['hermes', 'birkin'],
+        'context': ['sac', 'cuir', 'occasion'],
+        'variants': ['hermès birkin', 'birkin 30', 'birkin 35']},
+    'hermes kelly':       {'ref': 8000, 'cat': 'Luxe',
+        'kw': ['hermes', 'kelly'],
+        'context': ['sac', 'cuir', 'occasion'],
+        'variants': ['hermès kelly']},
 
     # ── SNEAKERS
-    'yeezy':         {'ref': 320,  'cat': 'Sneakers',
-        'kw': ['yeezy','adidas'],
-        'context': ['baskets','chaussures','pointure','occasion'],
-        'variants': ['yeezy boost','yeezy 350','yeezy 700']},
-    'jordan 1':      {'ref': 180,  'cat': 'Sneakers',
-        'kw': ['jordan','aj1','air jordan'],
-        'context': ['baskets','chaussures','pointure','occasion'],
-        'variants': ['jordan retro 1','air jordan 1']},
-    'nike dunk':     {'ref': 140,  'cat': 'Sneakers',
-        'kw': ['nike','dunk'],
-        'context': ['baskets','chaussures','pointure','occasion'],
-        'variants': ['dunk low','dunk high']},
-    'new balance 550': {'ref': 130, 'cat': 'Sneakers',
-        'kw': ['new balance','550'],
-        'context': ['baskets','chaussures','pointure'],
-        'variants': ['nb 550']},
+    'yeezy 350':          {'ref': 220,  'cat': 'Sneakers',
+        'kw': ['yeezy', '350'],
+        'context': ['baskets', 'chaussures', 'pointure', 'occasion'],
+        'variants': ['yeezy boost 350', 'zebra', 'bred']},
+    'yeezy 700':          {'ref': 180,  'cat': 'Sneakers',
+        'kw': ['yeezy', '700'],
+        'context': ['baskets', 'pointure', 'occasion'],
+        'variants': ['yeezy wave runner']},
+    'jordan 1 retro':     {'ref': 160,  'cat': 'Sneakers',
+        'kw': ['jordan', 'retro', 'aj1'],
+        'context': ['baskets', 'chaussures', 'pointure', 'occasion'],
+        'variants': ['air jordan 1 retro', 'aj1 retro']},
+    'nike dunk low':      {'ref': 120,  'cat': 'Sneakers',
+        'kw': ['nike', 'dunk', 'low'],
+        'context': ['baskets', 'chaussures', 'pointure'],
+        'variants': ['dunk low']},
+    'new balance 2002r':  {'ref': 140,  'cat': 'Sneakers',
+        'kw': ['new balance', '2002r'],
+        'context': ['baskets', 'pointure'],
+        'variants': ['nb 2002r']},
+    'asics gel lyte iii': {'ref': 110,  'cat': 'Sneakers',
+        'kw': ['asics', 'gel lyte', 'iii'],
+        'context': ['baskets', 'pointure', 'occasion'],
+        'variants': ['gel lyte 3']},
 
-    # ── COLLECTION
-    'pokemon':       {'ref': 80,   'cat': 'Cartes',
-        'kw': ['pokemon','pikachu','charizard'],
-        'context': ['carte','cartes','collection','rare','holo'],
-        'variants': ['pokémon','pokemone']},
-    'lego technic':  {'ref': 250,  'cat': 'LEGO',
-        'kw': ['lego','technic'],
-        'context': ['boite','set','complet','neuf','occasion'],
-        'variants': ['légo technic']},
-    'lego creator':  {'ref': 180,  'cat': 'LEGO',
-        'kw': ['lego','creator'],
-        'context': ['boite','set','complet'],
+    # ── COLLECTION / LOISIRS
+    'pokemon cartes rares': {'ref': 80,  'cat': 'Cartes',
+        'kw': ['pokemon', 'carte', 'charizard'],
+        'context': ['holo', 'rare', 'collection', '1ère edition'],
+        'variants': ['pokémon', 'dracaufeu', 'pikachu illustrateur']},
+    'lego technic 42':    {'ref': 280,  'cat': 'LEGO',
+        'kw': ['lego', 'technic', '42'],
+        'context': ['boite', 'set', 'complet', 'neuf'],
+        'variants': ['lego 42', 'technic 42']},
+    'lego star wars':     {'ref': 200,  'cat': 'LEGO',
+        'kw': ['lego', 'star wars'],
+        'context': ['boite', 'set', 'complet'],
         'variants': []},
-    'lego star wars': {'ref': 200, 'cat': 'LEGO',
-        'kw': ['lego','star wars'],
-        'context': ['boite','set','complet'],
-        'variants': []},
-    'vinyle':        {'ref': 40,   'cat': 'Vinyles',
-        'kw': ['vinyle','vinyl','33t','45t'],
-        'context': ['disque','collection','pressage','occasion'],
-        'variants': ['vinyl record','lp']},
-    'ipad pro':      {'ref': 850,  'cat': 'Tablettes',
-        'kw': ['ipad','pro'],
-        'context': ['tablette','occasion','m1','m2'],
-        'variants': ['ipad pro 11','ipad pro 12']},
+    'lego icons creator': {'ref': 220,  'cat': 'LEGO',
+        'kw': ['lego', 'icons', 'creator expert'],
+        'context': ['boite', 'set', 'complet'],
+        'variants': ['lego creator expert']},
+    'vinyle pressage original': {'ref': 60, 'cat': 'Vinyles',
+        'kw': ['vinyle', 'vinyl', '33t', 'pressage'],
+        'context': ['disque', 'collection', 'original', 'rare'],
+        'variants': ['vinyl lp', '33 tours']},
 }
 
-LOT_WORDS = ['lot','vrac','ensemble','collection','boite','caisse','assortiment','divers','melange','destockage','destock']
+LOT_WORDS = ['lot', 'vrac', 'ensemble', 'collection', 'boite', 'caisse',
+             'assortiment', 'divers', 'melange', 'destockage', 'destock',
+             'liquidation', 'bureau ferme', 'entreprise']
 
 HEADERS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -317,7 +545,6 @@ def parse_price(text):
     except: return None
 
 def is_accessory(text):
-    """Retourne True si le titre/description indique que c'est une pièce détachée ou accessoire"""
     tl = text.lower()
     for w in ACCESSORY_WORDS:
         if w in tl:
@@ -325,28 +552,21 @@ def is_accessory(text):
     return False, None
 
 def context_score(text, obj_data):
-    """Score de contexte : vérifie que les mots de contexte sont présents"""
     tl = text.lower()
     ctx_words = obj_data.get('context', [])
-    if not ctx_words:
-        return 50  # neutre si pas de context défini
+    if not ctx_words: return 50
     matches = sum(1 for w in ctx_words if w in tl)
     return min(100, int((matches / max(len(ctx_words), 1)) * 150))
 
 def detect_objects(title, description=''):
-    """Détection avancée avec validation contextuelle"""
     full_text = (title + ' ' + description).lower()
     title_low = title.lower()
     found = []
     seen = set()
-
-    # Vérification accessoire/pièce d'abord
     acc, acc_word = is_accessory(title)
 
     for name, d in VALUE_OBJECTS.items():
         if name in seen: continue
-
-        # ── Test 1 : fuzzy matching sur le titre
         matched = False
         match_confidence = 0
 
@@ -356,7 +576,6 @@ def detect_objects(title, description=''):
                 matched = True
                 match_confidence = score
 
-        # ── Test 2 : variants exacts
         if not matched:
             for v in d.get('variants', []):
                 if v.lower() in title_low:
@@ -364,28 +583,17 @@ def detect_objects(title, description=''):
                     match_confidence = 90
                     break
 
-        # ── Test 3 : keywords (au moins 2 présents dans le texte complet)
         if not matched:
             kw_matches = sum(1 for k in d['kw'] if k in full_text)
             if kw_matches >= 2:
                 matched = True
                 match_confidence = 55 + kw_matches * 8
 
-        if not matched:
-            continue
+        if not matched: continue
+        if acc: continue  # Exclure si accessoire
 
-        # ── Réduction si accessoire détecté
-        if acc:
-            # Si c'est manifestement une pièce détachée, exclure complètement
-            match_confidence = 0
-            continue
-
-        # ── Score de contexte
         ctx = context_score(full_text, d)
-
-        # Pénalité si contexte faible (objet mentionné mais contexte pas cohérent)
-        if ctx < 20 and match_confidence < 80:
-            continue  # Probablement un accessoire ou mention incidente
+        if ctx < 20 and match_confidence < 80: continue
 
         final_confidence = int(match_confidence * 0.6 + ctx * 0.4)
         found.append((name, d['ref'], d['cat'], final_confidence))
@@ -394,33 +602,62 @@ def detect_objects(title, description=''):
     is_lot = any(w in full_text for w in LOT_WORDS)
     return found, is_lot
 
-def analyze_image_with_description(img_url, title):
+def analyze_image_google_vision(img_url):
     """
-    Analyse contextuelle légère : on compare le titre
-    avec les objets visuellement attendus via des heuristiques
-    basées sur l'URL et les métadonnées de l'image.
-    Pour une vraie analyse visuelle, utilise l'API Clarifai free tier.
+    Google Vision API - GRATUIT 1000 appels/mois
+    Setup : https://console.cloud.google.com/
+    1. Crée un projet > Active Cloud Vision API
+    2. APIs & Services > Identifiants > Créer une clé API
+    3. Colle ta clé dans GOOGLE_VISION_KEY en haut du fichier
     """
-    # Heuristique : si l'image existe et le titre contient des indices visuels faibles
-    # on tente une description via l'API Clarifai (gratuite jusqu'à 1000 appels/mois)
-    # Retourne une liste de concepts détectés
+    if GOOGLE_VISION_KEY == 'VOTRE_CLE_ICI' or not img_url:
+        return []
     try:
-        if not img_url: return []
-        # API Clarifai general model (free)
-        api_key = 'CLARIFAI_KEY'  # Remplace par ta clé gratuite sur clarifai.com
-        if api_key == 'CLARIFAI_KEY':
-            return []  # Pas de clé configurée
-        headers_api = {'Authorization': f'Key {api_key}', 'Content-Type': 'application/json'}
-        body = {'inputs': [{'data': {'image': {'url': img_url}}}]}
-        r = requests.post(
-            'https://api.clarifai.com/v2/models/general-image-recognition/versions/aa7f35c01e0642fda5cf400f543e7c40/outputs',
-            headers=headers_api, json=body, timeout=10)
-        if r.status_code == 200:
-            concepts = r.json()['outputs'][0]['data']['concepts']
-            return [c['name'].lower() for c in concepts[:15] if c['value'] > 0.80]
-    except Exception:
-        pass
-    return []
+        # Télécharger l'image et l'encoder en base64
+        r = requests.get(img_url, headers=rh(), timeout=8)
+        r.raise_for_status()
+        img_b64 = base64.b64encode(r.content).decode('utf-8')
+
+        payload = {
+            'requests': [{
+                'image': {'content': img_b64},
+                'features': [
+                    {'type': 'LABEL_DETECTION', 'maxResults': 15},
+                    {'type': 'LOGO_DETECTION',  'maxResults': 5},
+                    {'type': 'TEXT_DETECTION',  'maxResults': 1},
+                ]
+            }]
+        }
+        api_url = f'https://vision.googleapis.com/v1/images:annotate?key={GOOGLE_VISION_KEY}'
+        resp = requests.post(api_url, json=payload, timeout=15)
+        if resp.status_code != 200:
+            return []
+
+        data = resp.json()
+        result = data.get('responses', [{}])[0]
+        concepts = []
+
+        # Labels (ex: "smartphone", "laptop", "office chair")
+        for lbl in result.get('labelAnnotations', []):
+            if lbl.get('score', 0) > 0.75:
+                concepts.append(lbl['description'].lower())
+
+        # Logos de marques (ex: "Apple", "Samsung", "Herman Miller")
+        for logo in result.get('logoAnnotations', []):
+            concepts.append(logo['description'].lower())
+
+        # Texte détecté dans l'image (modèle, référence)
+        text_annotations = result.get('textAnnotations', [])
+        if text_annotations:
+            full_text = text_annotations[0].get('description', '').lower()
+            # Extraire les mots courts (modèles, refs)
+            words = re.findall(r'\b[a-zA-Z0-9\-]{2,12}\b', full_text)
+            concepts.extend(words[:20])
+
+        return concepts
+    except Exception as e:
+        print(f'[Vision API] {e}')
+        return []
 
 def deal_score(price, ref, is_lot=False, n=1):
     if not price or price <= 0: return 0, 0
@@ -454,7 +691,6 @@ def scrape_ebay(query, max_r=40):
                 if not t or 'Shop on eBay' in t: continue
                 p = parse_price(price.get_text() if price else '')
                 if not p: continue
-                # Récupérer src ou data-src
                 img_url = ''
                 if img:
                     img_url = img.get('src') or img.get('data-src','')
@@ -511,8 +747,7 @@ def scrape_lbc_rss(query, max_r=30):
                     href = a_el.get('href','') if a_el else ''
                     link = ('https://www.leboncoin.fr'+href) if href.startswith('/') else href
                     img_url = ''
-                    if i_el:
-                        img_url = i_el.get('src') or i_el.get('data-src','')
+                    if i_el: img_url = i_el.get('src') or i_el.get('data-src','')
                     if t and p:
                         results.append({'title':t,'price':p,'link':link,
                             'img':img_url,'desc':'',
@@ -545,7 +780,7 @@ def scrape_vinted(query, max_r=30):
             url = f'https://www.vinted.fr/catalog?search_text={urllib.parse.quote(query)}'
             r2 = requests.get(url, headers=rh(), timeout=15)
             soup = BeautifulSoup(r2.text, 'html5lib')
-            for item in soup.select('[data-testid*="item"],[class*="ItemBox"],[class*="item-box"]')[:max_r]:
+            for item in soup.select('[data-testid*="item"],[class*="ItemBox"]')[:max_r]:
                 try:
                     t_el = item.select_one('[class*="title"],[class*="name"]')
                     p_el = item.select_one('[class*="price"]')
@@ -555,8 +790,7 @@ def scrape_vinted(query, max_r=30):
                     p = parse_price(p_el.get_text() if p_el else '')
                     href = a_el.get('href','') if a_el else ''
                     link = ('https://www.vinted.fr'+href) if href.startswith('/') else href
-                    img_url = ''
-                    if i_el: img_url = i_el.get('src') or i_el.get('data-src','')
+                    img_url = i_el.get('src') or i_el.get('data-src','') if i_el else ''
                     if t and p:
                         results.append({'title':t,'price':p,'link':link,'img':img_url,
                             'desc':'','platform':'Vinted','color':'#09B1BA'})
@@ -568,18 +802,14 @@ def scrape_vinted(query, max_r=30):
 def analyze(listings, min_disc):
     deals = []
     for item in listings:
-        full = item['title'] + ' ' + item.get('desc','')
         objs, is_lot = detect_objects(item['title'], item.get('desc',''))
-
-        # Si aucun objet trouvé et image disponible, tenter analyse visuelle
-        if not objs and item.get('img'):
-            visual_concepts = analyze_image_with_description(item['img'], item['title'])
-            if visual_concepts:
-                visual_text = ' '.join(visual_concepts)
+        # Fallback analyse photo si rien trouvé dans le texte
+        if not objs and item.get('img') and GOOGLE_VISION_KEY != 'VOTRE_CLE_ICI':
+            concepts = analyze_image_google_vision(item['img'])
+            if concepts:
+                visual_text = ' '.join(concepts)
                 objs, is_lot = detect_objects(item['title'] + ' ' + visual_text, item.get('desc',''))
-
         if not objs: continue
-
         best = max(objs, key=lambda x: x[1])
         pct, sc = deal_score(item['price'], best[1], is_lot, len(objs))
         if pct >= min_disc:
@@ -594,9 +824,10 @@ AUTO_QUERIES = [
     'lot electronique', 'iphone occasion', 'ps5 console',
     'montre collection', 'lot carte pokemon', 'lego boite',
     'jordan sneakers', 'dyson occasion', 'macbook',
-    'chaise bureau herman', 'fauteuil ergonomique bureau',
-    'destockage bureau mobilier', 'chaise ergonomique occasion',
-    'lot informatique vrac',
+    'chaise bureau herman miller', 'fauteuil ergonomique bureau',
+    'destockage bureau mobilier', 'chaise steelcase occasion',
+    'lot informatique vrac', 'samsung galaxy occasion',
+    'ipad pro occasion', 'gopro occasion', 'drone dji occasion',
 ]
 
 # ══════════════════════════════════════════════
@@ -604,7 +835,6 @@ AUTO_QUERIES = [
 # ══════════════════════════════════════════════
 
 def load_image_async(url, callback, size=(200, 150)):
-    """Charge une image depuis une URL et appelle callback(ImageTk.PhotoImage)"""
     def _load():
         if not PIL_OK or not url: return
         try:
@@ -642,7 +872,7 @@ class DealHunter(tk.Tk):
         self.minsize(900, 600)
         self.configure(bg=BG)
         self.deals = []
-        self._image_refs = []  # Garder les références pour éviter le GC
+        self._image_refs = []
         self._build_ui()
         self._style_ttk()
 
@@ -650,8 +880,6 @@ class DealHunter(tk.Tk):
         s = ttk.Style(self)
         s.theme_use('clam')
         s.configure('TFrame', background=BG)
-        s.configure('Sidebar.TFrame', background=SURF)
-        s.configure('Card.TFrame', background=SURF2)
         s.configure('TLabel', background=BG, foreground=TEXT, font=('Segoe UI', 10))
         s.configure('Vertical.TScrollbar', background=SURF2, troughcolor=BG, arrowcolor=MUTED)
         s.configure('TEntry', fieldbackground=SURF2, foreground=TEXT,
@@ -669,14 +897,12 @@ class DealHunter(tk.Tk):
 
     def _build_sidebar(self):
         sb = self.sidebar
-        # Logo
         tk.Frame(sb, bg=SURF, height=10).pack(fill='x')
         tk.Label(sb, text='🔍 Deal Hunter', bg=SURF, fg=PRI,
                  font=('Segoe UI', 15, 'bold')).pack(padx=14)
         tk.Label(sb, text='Chasseur de bonnes affaires', bg=SURF, fg=MUTED,
                  font=('Segoe UI', 9)).pack(pady=(0,8))
         tk.Frame(sb, bg=BORD, height=1).pack(fill='x')
-        # Recherche
         tk.Frame(sb, bg=SURF, height=8).pack(fill='x')
         tk.Label(sb, text='RECHERCHE', bg=SURF, fg=MUTED,
                  font=('Segoe UI', 8, 'bold')).pack(anchor='w', padx=14)
@@ -685,7 +911,7 @@ class DealHunter(tk.Tk):
         se.pack(fill='x', padx=14, pady=(4,4))
         se.bind('<Return>', lambda e: self.do_search())
         # Tags rapides
-        tags = [('📦 Lots élec','lot electronique'),('📱 iPhone','iphone'),
+        tags = [('📦 Lots élec','lot electronique'),('📱 iPhone','iphone occasion'),
                 ('🎮 PS5','ps5 console'),('⌚ Montres','montre collection'),
                 ('🃏 Pokémon','pokemon carte'),('👟 Sneakers','jordan yeezy'),
                 ('🖥 Mac','macbook'),('🌀 Dyson','dyson aspirateur'),
@@ -703,7 +929,7 @@ class DealHunter(tk.Tk):
         tk.Frame(sb, bg=BORD, height=1).pack(fill='x')
         # Remise minimale
         tk.Frame(sb, bg=SURF, height=4).pack(fill='x')
-        tk.Label(sb, text='REMISE MINIMALE', bg=SURF, fg=MUTED,
+        tk.Label(sb, text='REMISE MINIMALE (vs BackMarket)', bg=SURF, fg=MUTED,
                  font=('Segoe UI', 8, 'bold')).pack(anchor='w', padx=14)
         df = tk.Frame(sb, bg=SURF)
         df.pack(fill='x', padx=14)
@@ -741,7 +967,8 @@ class DealHunter(tk.Tk):
                   relief='flat', bd=0, pady=10, cursor='hand2',
                   command=self.do_auto).pack(fill='x', padx=14, pady=(0,10))
         tk.Frame(sb, bg=BORD, height=1).pack(fill='x')
-        tk.Label(sb, text='✅ Validation contextuelle\n✅ Exclut pièces/accessoires\n✅ Images des annonces\n✅ Mobilier bureau inclus',
+        vision_status = '✅ Google Vision actif' if GOOGLE_VISION_KEY != 'VOTRE_CLE_ICI' else '⚠️ Vision API non configurée'
+        tk.Label(sb, text=f'✅ Prix BasMarket réels\n✅ Exclut pièces/accessoires\n✅ Images des annonces\n✅ Mobilier bureau inclus\n{vision_status}',
                  bg=SURF, fg=MUTED, font=('Segoe UI', 8), justify='left').pack(padx=14, pady=10, anchor='w')
 
     def _build_content(self):
@@ -750,7 +977,6 @@ class DealHunter(tk.Tk):
         self.title_lbl = tk.Label(top, text='Prêt à chasser les deals 🎯',
                                    bg=BG, fg=TEXT, font=('Segoe UI', 14, 'bold'))
         self.title_lbl.pack(side='left')
-        # Stats
         self.stats_frame = tk.Frame(self.content, bg=BG)
         self.stats_frame.pack(fill='x', padx=20, pady=(0,8))
         self.stat_scanned = self._stat_card('0', 'Analysées')
@@ -758,10 +984,8 @@ class DealHunter(tk.Tk):
         self.stat_best    = self._stat_card('-', 'Meilleure remise')
         for w,_ in [self.stat_scanned, self.stat_deals, self.stat_best]:
             w.pack(side='left', padx=(0,10))
-        # Progress
         self.progress = ttk.Progressbar(self.content, mode='indeterminate')
         self.status_lbl = tk.Label(self.content, text='', bg=BG, fg=MUTED, font=('Segoe UI', 9))
-        # Zone scrollable
         outer = tk.Frame(self.content, bg=BG)
         outer.pack(fill='both', expand=True, padx=20, pady=(0,16))
         self.canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
@@ -790,8 +1014,7 @@ class DealHunter(tk.Tk):
         tk.Label(self.scroll_frame, text='🎯', bg=BG, font=('Segoe UI', 48)).pack(pady=(60,10))
         tk.Label(self.scroll_frame, text='Aucune recherche en cours',
                  bg=BG, fg=TEXT, font=('Segoe UI', 14, 'bold')).pack()
-        tk.Label(self.scroll_frame,
-                 text='Lance une recherche ou Auto-Hunt pour commencer.',
+        tk.Label(self.scroll_frame, text='Lance une recherche ou Auto-Hunt pour commencer.',
                  bg=BG, fg=MUTED, font=('Segoe UI', 10)).pack(pady=4)
 
     def _quick_search(self, val):
@@ -883,14 +1106,10 @@ class DealHunter(tk.Tk):
         outer.grid(row=row, column=col, sticky='nsew')
         card = tk.Frame(outer, bg=SURF2, highlightbackground=BORD, highlightthickness=1)
         card.pack(fill='both', expand=True)
-
-        # Header couleur plateforme
         tk.Frame(card, bg=d['color'], height=4).pack(fill='x')
-
         body = tk.Frame(card, bg=SURF2, padx=12, pady=10)
         body.pack(fill='both', expand=True)
-
-        # Ligne 1 : plateforme + badge remise
+        # Plateforme + badge
         top_row = tk.Frame(body, bg=SURF2)
         top_row.pack(fill='x')
         tk.Label(top_row, text=d['platform'], bg=SURF2, fg=d['color'],
@@ -898,44 +1117,38 @@ class DealHunter(tk.Tk):
         badge_bg = '#7c3aed' if d['score'] >= 70 else RED
         tk.Label(top_row, text=f"  -{d['pct']}%  ", bg=badge_bg, fg='white',
                  font=('Segoe UI', 10, 'bold')).pack(side='right')
-
-        # ── IMAGE DE L'ANNONCE ──
+        # Image
         if PIL_OK and d.get('img'):
-            img_frame = tk.Frame(body, bg=SURF2, height=160)
+            img_frame = tk.Frame(body, bg='#12121a', height=160)
             img_frame.pack(fill='x', pady=(6,4))
             img_frame.pack_propagate(False)
-            placeholder = tk.Label(img_frame, text='⏳ chargement image...',
+            placeholder = tk.Label(img_frame, text='⏳ chargement...',
                                    bg='#12121a', fg=MUTED, font=('Segoe UI', 8))
             placeholder.pack(expand=True)
-            def set_img(photo, lbl=placeholder, frm=img_frame):
-                self._image_refs.append(photo)  # Garder la référence
+            def set_img(photo, lbl=placeholder):
+                self._image_refs.append(photo)
                 lbl.config(image=photo, text='', bg='#12121a')
             load_image_async(d['img'], set_img, size=(440, 155))
         elif not PIL_OK and d.get('img'):
-            tk.Label(body, text='📷 Image disponible (install Pillow pour afficher)',
+            tk.Label(body, text='📷 Pillow requis pour afficher l\'image',
                      bg='#12121a', fg=MUTED, font=('Segoe UI', 8), pady=4).pack(fill='x')
-
-        # Lot badge
+        # Lot
         if d['is_lot']:
             tk.Label(body, text='📦 LOT — objet de valeur détecté à l\'intérieur',
-                     bg='#2d2a00', fg=ORANGE,
-                     font=('Segoe UI', 8, 'bold')).pack(anchor='w', pady=(4,0))
-
+                     bg='#2d2a00', fg=ORANGE, font=('Segoe UI', 8, 'bold')
+                     ).pack(anchor='w', pady=(4,0))
         # Titre
         title_txt = d['title'][:72] + '...' if len(d['title']) > 72 else d['title']
         tk.Label(body, text=title_txt, bg=SURF2, fg=TEXT,
-                 font=('Segoe UI', 10, 'bold'),
-                 wraplength=360, justify='left').pack(anchor='w', pady=(6,2))
-
-        # Objets détectés
+                 font=('Segoe UI', 10, 'bold'), wraplength=360, justify='left'
+                 ).pack(anchor='w', pady=(6,2))
+        # Détection
         objs_txt = ', '.join(o[0] for o in d['objects'][:3])
         tk.Label(body, text=f'🎯 Détecté : {objs_txt}',
                  bg=SURF2, fg=PRI, font=('Segoe UI', 9)).pack(anchor='w')
         tk.Label(body, text=f'📂 {d["cat"]}',
                  bg=SURF2, fg=MUTED, font=('Segoe UI', 8)).pack(anchor='w', pady=(2,6))
-
         tk.Frame(body, bg=BORD, height=1).pack(fill='x')
-
         # Prix
         price_row = tk.Frame(body, bg=SURF2)
         price_row.pack(fill='x', pady=8)
@@ -943,9 +1156,10 @@ class DealHunter(tk.Tk):
                  bg=SURF2, fg=GREEN, font=('Segoe UI', 18, 'bold')).pack(side='left')
         rp = tk.Frame(price_row, bg=SURF2)
         rp.pack(side='right', anchor='e')
-        tk.Label(rp, text=f"Réf : {d['ref']} €", bg=SURF2, fg=MUTED, font=('Segoe UI', 8)).pack(anchor='e')
-        tk.Label(rp, text=f"Économie ~{d['savings']} €", bg=SURF2, fg=GREEN, font=('Segoe UI', 9, 'bold')).pack(anchor='e')
-
+        tk.Label(rp, text=f"Réf BackMarket : {d['ref']} €",
+                 bg=SURF2, fg=MUTED, font=('Segoe UI', 8)).pack(anchor='e')
+        tk.Label(rp, text=f"Économie ~{d['savings']} €",
+                 bg=SURF2, fg=GREEN, font=('Segoe UI', 9, 'bold')).pack(anchor='e')
         # Barre score
         sc = d['score']
         bar_color = '#7c3aed' if sc >= 80 else (ORANGE if sc >= 60 else GREEN)
@@ -954,7 +1168,6 @@ class DealHunter(tk.Tk):
         tk.Frame(bar_frame, bg=bar_color, height=5, width=int(3.4*sc)).place(x=0,y=0)
         tk.Label(body, text=f'Score deal : {sc}/100',
                  bg=SURF2, fg=MUTED, font=('Segoe UI', 8)).pack(anchor='w', pady=(4,6))
-
         if d['link']:
             tk.Button(body, text='🔗  Voir l\'annonce →',
                       bg=PRI, fg='white', font=('Segoe UI', 9, 'bold'),
