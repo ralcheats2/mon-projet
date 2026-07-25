@@ -1,28 +1,28 @@
-# ═══════════════════════════════════════════════════════════════════════════
-#  VISION FURNITURE — Identification visuelle de chaises premium
-#  Utilise Google Cloud Vision API (GRATUIT 1000 req/mois)
-#  Même clé que dans deal_hunter.py — pas de setup supplémentaire
-#
-#  SETUP (si pas encore fait) :
-#    1. https://console.cloud.google.com/ → crée un projet
-#    2. Active "Cloud Vision API"
-#    3. APIs & Services → Identifiants → Créer une clé API
-#    4. Colle-la dans GOOGLE_VISION_KEY dans deal_hunter.py
-#       (vision_furniture.py la récupère automatiquement)
-# ═══════════════════════════════════════════════════════════════════════════
+# 100% GRATUIT - aucune API, aucune cle, OCR local
+# pip install easyocr  (tourne sur CPU, pas de GPU requis)
 
-import requests
-import base64
-import re
-import json
+import re, io, requests
 
-# Récupérée depuis deal_hunter.py pour ne pas dupliquer la config
 try:
-    from deal_hunter import GOOGLE_VISION_KEY
+    import easyocr
+    _reader = None
+    EASYOCR_OK = True
 except ImportError:
-    GOOGLE_VISION_KEY = 'VOTRE_CLE_ICI'
+    EASYOCR_OK = False
 
-# ─── MOTS-CLÉS DÉCLENCHEURS ───────────────────────────────────────────────
+try:
+    import pytesseract
+    from PIL import Image as _PILImage
+    TESSERACT_OK = True
+except ImportError:
+    TESSERACT_OK = False
+
+try:
+    from PIL import Image as _PILImage
+    PIL_OK = True
+except ImportError:
+    PIL_OK = False
+
 CHAIR_TRIGGER_WORDS = [
     'chaise bureau', 'fauteuil bureau', 'siege bureau',
     'chaise ergonomique', 'fauteuil ergonomique', 'siege ergonomique',
@@ -31,191 +31,135 @@ CHAIR_TRIGGER_WORDS = [
     'chaise direction', 'fauteuil direction',
 ]
 
-# ─── CATALOGUE PREMIUM ────────────────────────────────────────────────────
-# Prix marché occasion France (destockage entreprise, leboncoin, ebay)
 PREMIUM_CHAIR_CATALOG = {
-    # Herman Miller
-    'herman miller aeron':   {'market_price': 600,  'brand': 'Herman Miller'},
-    'herman miller embody':  {'market_price': 900,  'brand': 'Herman Miller'},
-    'herman miller mirra':   {'market_price': 300,  'brand': 'Herman Miller'},
-    'herman miller cosm':    {'market_price': 800,  'brand': 'Herman Miller'},
-    'herman miller sayl':    {'market_price': 350,  'brand': 'Herman Miller'},
-    # Steelcase
-    'steelcase leap':        {'market_price': 500,  'brand': 'Steelcase'},
-    'steelcase gesture':     {'market_price': 600,  'brand': 'Steelcase'},
-    'steelcase think':       {'market_price': 400,  'brand': 'Steelcase'},
-    'steelcase amia':        {'market_price': 350,  'brand': 'Steelcase'},
-    # Vitra
-    'vitra eames daw':       {'market_price': 700,  'brand': 'Vitra'},
-    'vitra eames dsw':       {'market_price': 600,  'brand': 'Vitra'},
-    'vitra hal':             {'market_price': 450,  'brand': 'Vitra'},
-    'vitra id chair':        {'market_price': 800,  'brand': 'Vitra'},
-    # Humanscale
-    'humanscale freedom':    {'market_price': 650,  'brand': 'Humanscale'},
-    'humanscale diffrient':  {'market_price': 500,  'brand': 'Humanscale'},
-    # Knoll
-    'knoll barcelona':       {'market_price': 2000, 'brand': 'Knoll'},
-    'knoll regeneration':    {'market_price': 600,  'brand': 'Knoll'},
-    # Autres
-    'okamura contessa':      {'market_price': 700,  'brand': 'Okamura'},
-    'haworth fern':          {'market_price': 700,  'brand': 'Haworth'},
+    'herman miller aeron':  {'market_price': 600,  'brand': 'Herman Miller'},
+    'herman miller embody': {'market_price': 900,  'brand': 'Herman Miller'},
+    'herman miller mirra':  {'market_price': 300,  'brand': 'Herman Miller'},
+    'herman miller cosm':   {'market_price': 800,  'brand': 'Herman Miller'},
+    'herman miller sayl':   {'market_price': 350,  'brand': 'Herman Miller'},
+    'steelcase leap':       {'market_price': 500,  'brand': 'Steelcase'},
+    'steelcase gesture':    {'market_price': 600,  'brand': 'Steelcase'},
+    'steelcase think':      {'market_price': 400,  'brand': 'Steelcase'},
+    'steelcase amia':       {'market_price': 350,  'brand': 'Steelcase'},
+    'vitra eames daw':      {'market_price': 700,  'brand': 'Vitra'},
+    'vitra eames dsw':      {'market_price': 600,  'brand': 'Vitra'},
+    'vitra hal':            {'market_price': 450,  'brand': 'Vitra'},
+    'humanscale freedom':   {'market_price': 650,  'brand': 'Humanscale'},
+    'knoll barcelona':      {'market_price': 2000, 'brand': 'Knoll'},
+    'okamura contessa':     {'market_price': 700,  'brand': 'Okamura'},
+    'haworth fern':         {'market_price': 700,  'brand': 'Haworth'},
 }
 
-# ─── Logos / labels retournés par Google Vision → modèle catalogue ─────────
-# Google Vision détecte des logos de marque et des labels génériques.
-# On mappe les concepts visuels vers les entrées du catalogue.
-VISION_LABEL_MAP = {
-    # Logos de marques (logoAnnotations)
-    'herman miller': 'herman miller aeron',   # par défaut Aeron (le plus commun)
-    'steelcase':     'steelcase leap',
-    'vitra':         'vitra eames daw',
-    'humanscale':    'humanscale freedom',
-    'knoll':         'knoll regeneration',
-    'okamura':       'okamura contessa',
-    'haworth':       'haworth fern',
-    # Labels textuels détectés dans l'image (textAnnotations / labelAnnotations)
+OCR_KEYWORD_MAP = {
     'aeron':         'herman miller aeron',
     'embody':        'herman miller embody',
     'mirra':         'herman miller mirra',
     'cosm':          'herman miller cosm',
     'sayl':          'herman miller sayl',
+    'herman miller': 'herman miller aeron',
+    'hermanmiller':  'herman miller aeron',
+    'steelcase':     'steelcase leap',
     'leap':          'steelcase leap',
     'gesture':       'steelcase gesture',
     'think':         'steelcase think',
     'amia':          'steelcase amia',
+    'vitra':         'vitra eames daw',
     'eames':         'vitra eames daw',
+    'humanscale':    'humanscale freedom',
+    'freedom':       'humanscale freedom',
+    'knoll':         'knoll barcelona',
     'barcelona':     'knoll barcelona',
+    'okamura':       'okamura contessa',
     'contessa':      'okamura contessa',
+    'haworth':       'haworth fern',
+    'fern':          'haworth fern',
 }
 
 
 def is_chair_listing(title: str, description: str = '') -> bool:
-    """Retourne True si l'annonce parle probablement d'une chaise de bureau."""
     text = (title + ' ' + description).lower()
-    return any(trigger in text for trigger in CHAIR_TRIGGER_WORDS)
+    return any(t in text for t in CHAIR_TRIGGER_WORDS)
 
 
-def identify_chair_google_vision(img_url: str) -> dict:
-    """
-    Analyse une image avec Google Cloud Vision API (gratuit 1000 req/mois).
-    Retourne :
-      - model        : clé catalogue détectée ou None
-      - brand        : marque ou None
-      - confidence   : 0-100 (basé sur le score Vision)
-      - market_price : prix de référence ou 0
-    """
-    if GOOGLE_VISION_KEY == 'VOTRE_CLE_ICI' or not img_url:
-        return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
-
+def _download_image(img_url: str):
+    if not PIL_OK or not img_url:
+        return None
     try:
         r = requests.get(img_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
         r.raise_for_status()
-        img_b64 = base64.b64encode(r.content).decode('utf-8')
-
-        payload = {
-            'requests': [{
-                'image': {'content': img_b64},
-                'features': [
-                    {'type': 'LABEL_DETECTION', 'maxResults': 20},
-                    {'type': 'LOGO_DETECTION',  'maxResults': 5},
-                    {'type': 'TEXT_DETECTION',  'maxResults': 1},
-                ]
-            }]
-        }
-        api_url = f'https://vision.googleapis.com/v1/images:annotate?key={GOOGLE_VISION_KEY}'
-        resp = requests.post(api_url, json=payload, timeout=15)
-        if resp.status_code != 200:
-            return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
-
-        data   = resp.json()
-        result = data.get('responses', [{}])[0]
-
-        # Collecter tous les concepts détectés avec leur score
-        concepts = {}  # texte_lower → score
-
-        for lbl in result.get('labelAnnotations', []):
-            txt = lbl.get('description', '').lower()
-            concepts[txt] = max(concepts.get(txt, 0), lbl.get('score', 0))
-
-        for logo in result.get('logoAnnotations', []):
-            txt = logo.get('description', '').lower()
-            concepts[txt] = max(concepts.get(txt, 0), logo.get('score', 0.9))
-
-        # Texte OCR dans l'image (étiquettes, logo imprimé sur le dossier, etc.)
-        text_annots = result.get('textAnnotations', [])
-        if text_annots:
-            ocr_text = text_annots[0].get('description', '').lower()
-            words = re.findall(r'[a-z][a-z0-9\-]{2,14}', ocr_text)
-            for w in words:
-                if w not in concepts:
-                    concepts[w] = 0.6  # score OCR moyen
-
-        # Chercher le meilleur match dans VISION_LABEL_MAP
-        best_model = None
-        best_score = 0.0
-
-        for concept, score in concepts.items():
-            for trigger, catalog_key in VISION_LABEL_MAP.items():
-                if trigger in concept or concept in trigger:
-                    if score > best_score:
-                        best_score = score
-                        best_model = catalog_key
-
-        if not best_model:
-            return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
-
-        catalog_entry = PREMIUM_CHAIR_CATALOG.get(best_model, {})
-        brand         = catalog_entry.get('brand')
-        market_price  = catalog_entry.get('market_price', 0)
-        confidence    = int(min(best_score * 100, 100))
-
-        return {
-            'model':        best_model,
-            'brand':        brand,
-            'confidence':   confidence,
-            'market_price': market_price,
-        }
-
-    except Exception as e:
-        print(f'[VisionFurniture] {e}')
-        return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
-
-
-def analyze_chair_deal(item: dict, min_confidence: int = 60) -> dict | None:
-    """
-    Pipeline complet pour une annonce de chaise :
-      1. Vérifie que c'est une chaise de bureau (mots-clés titre/desc)
-      2. Envoie la photo à Google Vision
-      3. Si modèle premium détecté avec confiance ≥ min_confidence → retourne le deal
-      4. Sinon → None
-
-    item : dict avec title, price, img, desc, link, platform, color
-    """
-    title = item.get('title', '')
-    desc  = item.get('desc', '')
-    price = item.get('price', 0)
-    img   = item.get('img', '')
-
-    if not is_chair_listing(title, desc):
-        return None
-    if not img or not price:
+        return _PILImage.open(io.BytesIO(r.content)).convert('RGB')
+    except Exception:
         return None
 
-    result = identify_chair_google_vision(img)
 
+def _ocr_text(img) -> str:
+    global _reader
+    if EASYOCR_OK:
+        try:
+            if _reader is None:
+                _reader = easyocr.Reader(['fr', 'en'], gpu=False, verbose=False)
+            import numpy as np
+            return ' '.join(_reader.readtext(np.array(img), detail=0)).lower()
+        except Exception:
+            pass
+    if TESSERACT_OK:
+        try:
+            return pytesseract.image_to_string(img, lang='fra+eng').lower()
+        except Exception:
+            pass
+    return ''
+
+
+def _match_ocr(ocr_text: str) -> tuple:
+    found = {}
+    for keyword, catalog_key in OCR_KEYWORD_MAP.items():
+        if keyword in ocr_text:
+            found[catalog_key] = found.get(catalog_key, 0) + 1
+    if not found:
+        return None, 0
+    best = max(found, key=found.get)
+    confidence = min(70 + found[best] * 10, 95)
+    return best, confidence
+
+
+def identify_chair_local(img_url: str) -> dict:
+    empty = {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
+    if not (EASYOCR_OK or TESSERACT_OK):
+        return empty
+    img = _download_image(img_url)
+    if img is None:
+        return empty
+    ocr_text = _ocr_text(img)
+    if not ocr_text.strip():
+        return empty
+    model_key, confidence = _match_ocr(ocr_text)
+    if not model_key:
+        return empty
+    entry = PREMIUM_CHAIR_CATALOG.get(model_key, {})
+    return {
+        'model':        model_key,
+        'brand':        entry.get('brand'),
+        'confidence':   confidence,
+        'market_price': entry.get('market_price', 0),
+    }
+
+
+def analyze_chair_deal(item: dict, min_confidence: int = 65) -> dict | None:
+    if not is_chair_listing(item.get('title', ''), item.get('desc', '')):
+        return None
+    if not item.get('img') or not item.get('price'):
+        return None
+    result = identify_chair_local(item['img'])
     if not result['model'] or result['confidence'] < min_confidence:
         return None
     if result['market_price'] <= 0:
         return None
-
     ref      = result['market_price']
+    price    = item['price']
     disc_pct = round((ref - price) / ref * 100, 1)
     savings  = round(ref - price, 2)
-
-    # Garder même une petite décote si confiance très haute (vendeur naïf)
     if disc_pct < 20 and result['confidence'] < 80:
         return None
-
     return {
         **item,
         'detected_by':       'vision_ai',
@@ -228,7 +172,11 @@ def analyze_chair_deal(item: dict, min_confidence: int = 60) -> dict | None:
         'savings':           savings,
         'is_lot':            False,
         'objects':           [(result['model'], ref, 'Mobilier bureau', result['confidence'])],
-        'vision_details':    result.get('details', ''),
+        'vision_details':    '',
         'vision_confidence': result['confidence'],
         'vendor_unaware':    True,
     }
+
+
+def ocr_available() -> bool:
+    return EASYOCR_OK or TESSERACT_OK
