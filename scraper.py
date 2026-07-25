@@ -19,16 +19,6 @@ import threading
 # (rolex submariner avant rolex, etc.)
 
 CATALOG = [
-    # ──────────── SAMSUNG ────────────
-    {'name': 'samsung galaxy s24 ultra', 'anchor': ['samsung'], 'required': ['s24', 'ultra'], 'min_hits': 2,
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'samsung galaxy s24 ultra'},
-    {'name': 'samsung galaxy s24',       'anchor': ['samsung'], 'required': ['s24'], 'min_hits': 1, 'exclude': ['ultra'],
-     'ref_price': 0, 'category': '📱 Téléphones', 'bm_key': 'samsung galaxy s24'},
-    {'name': 'samsung galaxy s23',       'anchor': ['samsung'], 'required': ['s23'], 'min_hits': 1,
-     'ref_price': 380, 'category': '📱 Téléphones'},
-    {'name': 'samsung galaxy s22',       'anchor': ['samsung'], 'required': ['s22'], 'min_hits': 1,
-     'ref_price': 280, 'category': '📱 Téléphones'},
-
     # ──────────── MACBOOK ────────────
     {'name': 'macbook pro m3',  'anchor': ['macbook'], 'required': ['pro', 'm3'], 'min_hits': 2,
      'ref_price': 0, 'category': '💻 Ordinateurs', 'bm_key': 'macbook pro m3'},
@@ -313,7 +303,6 @@ def match_catalog(title, description=''):
 
 
 EMERGENCY_PRICES = {
-    'samsung galaxy s24 ultra': 750, 'samsung galaxy s24': 580,
     'ps5': 380, 'xbox series x': 350, 'nintendo switch oled': 230, 'steam deck': 360,
     'macbook pro m3': 1600, 'macbook pro m2': 1200, 'macbook pro m1': 900,
     'macbook air m2': 850, 'macbook air m1': 620,
