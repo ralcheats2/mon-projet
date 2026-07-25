@@ -1,23 +1,28 @@
 # ═══════════════════════════════════════════════════════════════════════════
 #  VISION FURNITURE — Identification visuelle de chaises premium
-#  Utilise GPT-4o Vision (OpenAI) pour analyser les photos d'annonces
-#  de chaises de bureau et détecter Herman Miller, Steelcase, Vitra, etc.
+#  Utilise Google Cloud Vision API (GRATUIT 1000 req/mois)
+#  Même clé que dans deal_hunter.py — pas de setup supplémentaire
 #
-#  SETUP :
-#    pip install openai
-#    Mets ta clé OpenAI dans OPENAI_API_KEY ci-dessous
-#    Coût : ~0.001€ / image — très raisonnable
+#  SETUP (si pas encore fait) :
+#    1. https://console.cloud.google.com/ → crée un projet
+#    2. Active "Cloud Vision API"
+#    3. APIs & Services → Identifiants → Créer une clé API
+#    4. Colle-la dans GOOGLE_VISION_KEY dans deal_hunter.py
+#       (vision_furniture.py la récupère automatiquement)
 # ═══════════════════════════════════════════════════════════════════════════
 
 import requests
 import base64
-import random
 import re
+import json
 
-# ─── CONFIG ───────────────────────────────────────────────────────────────
-OPENAI_API_KEY = 'VOTRE_CLE_OPENAI_ICI'
+# Récupérée depuis deal_hunter.py pour ne pas dupliquer la config
+try:
+    from deal_hunter import GOOGLE_VISION_KEY
+except ImportError:
+    GOOGLE_VISION_KEY = 'VOTRE_CLE_ICI'
 
-# Mots-clés qui signalent qu'une annonce est probablement une chaise de bureau
+# ─── MOTS-CLÉS DÉCLENCHEURS ───────────────────────────────────────────────
 CHAIR_TRIGGER_WORDS = [
     'chaise bureau', 'fauteuil bureau', 'siege bureau',
     'chaise ergonomique', 'fauteuil ergonomique', 'siege ergonomique',
@@ -26,7 +31,8 @@ CHAIR_TRIGGER_WORDS = [
     'chaise direction', 'fauteuil direction',
 ]
 
-# Modèles premium connus avec leur prix marché reconditionnés
+# ─── CATALOGUE PREMIUM ────────────────────────────────────────────────────
+# Prix marché occasion France (destockage entreprise, leboncoin, ebay)
 PREMIUM_CHAIR_CATALOG = {
     # Herman Miller
     'herman miller aeron':   {'market_price': 600,  'brand': 'Herman Miller'},
@@ -35,7 +41,7 @@ PREMIUM_CHAIR_CATALOG = {
     'herman miller cosm':    {'market_price': 800,  'brand': 'Herman Miller'},
     'herman miller sayl':    {'market_price': 350,  'brand': 'Herman Miller'},
     # Steelcase
-    'steelcase leap v2':     {'market_price': 500,  'brand': 'Steelcase'},
+    'steelcase leap':        {'market_price': 500,  'brand': 'Steelcase'},
     'steelcase gesture':     {'market_price': 600,  'brand': 'Steelcase'},
     'steelcase think':       {'market_price': 400,  'brand': 'Steelcase'},
     'steelcase amia':        {'market_price': 350,  'brand': 'Steelcase'},
@@ -52,8 +58,34 @@ PREMIUM_CHAIR_CATALOG = {
     'knoll regeneration':    {'market_price': 600,  'brand': 'Knoll'},
     # Autres
     'okamura contessa':      {'market_price': 700,  'brand': 'Okamura'},
-    'wilkhahn ON':           {'market_price': 800,  'brand': 'Wilkhahn'},
     'haworth fern':          {'market_price': 700,  'brand': 'Haworth'},
+}
+
+# ─── Logos / labels retournés par Google Vision → modèle catalogue ─────────
+# Google Vision détecte des logos de marque et des labels génériques.
+# On mappe les concepts visuels vers les entrées du catalogue.
+VISION_LABEL_MAP = {
+    # Logos de marques (logoAnnotations)
+    'herman miller': 'herman miller aeron',   # par défaut Aeron (le plus commun)
+    'steelcase':     'steelcase leap',
+    'vitra':         'vitra eames daw',
+    'humanscale':    'humanscale freedom',
+    'knoll':         'knoll regeneration',
+    'okamura':       'okamura contessa',
+    'haworth':       'haworth fern',
+    # Labels textuels détectés dans l'image (textAnnotations / labelAnnotations)
+    'aeron':         'herman miller aeron',
+    'embody':        'herman miller embody',
+    'mirra':         'herman miller mirra',
+    'cosm':          'herman miller cosm',
+    'sayl':          'herman miller sayl',
+    'leap':          'steelcase leap',
+    'gesture':       'steelcase gesture',
+    'think':         'steelcase think',
+    'amia':          'steelcase amia',
+    'eames':         'vitra eames daw',
+    'barcelona':     'knoll barcelona',
+    'contessa':      'okamura contessa',
 }
 
 
@@ -63,120 +95,101 @@ def is_chair_listing(title: str, description: str = '') -> bool:
     return any(trigger in text for trigger in CHAIR_TRIGGER_WORDS)
 
 
-def identify_chair_vision(img_url: str, title: str = '', description: str = '') -> dict:
+def identify_chair_google_vision(img_url: str) -> dict:
     """
-    Envoie l'image de l'annonce à GPT-4o Vision pour identifier la chaise.
-    Retourne un dict avec :
-      - model  : nom du modèle détecté (ex: 'herman miller aeron') ou None
-      - brand  : marque (ex: 'Herman Miller') ou None
-      - confidence : 0-100
+    Analyse une image avec Google Cloud Vision API (gratuit 1000 req/mois).
+    Retourne :
+      - model        : clé catalogue détectée ou None
+      - brand        : marque ou None
+      - confidence   : 0-100 (basé sur le score Vision)
       - market_price : prix de référence ou 0
-      - vision_raw : réponse brute du modèle (debug)
     """
-    if OPENAI_API_KEY == 'VOTRE_CLE_OPENAI_ICI' or not img_url:
-        return {'model': None, 'brand': None, 'confidence': 0,
-                'market_price': 0, 'vision_raw': 'API non configurée'}
+    if GOOGLE_VISION_KEY == 'VOTRE_CLE_ICI' or not img_url:
+        return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
 
     try:
-        # Télécharger et encoder l'image
-        r = requests.get(img_url, timeout=10,
-                         headers={'User-Agent': 'Mozilla/5.0'})
+        r = requests.get(img_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
         r.raise_for_status()
         img_b64 = base64.b64encode(r.content).decode('utf-8')
-        # Déterminer le content type
-        ct = r.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
-        if ct not in ('image/jpeg', 'image/png', 'image/webp', 'image/gif'):
-            ct = 'image/jpeg'
-
-        prompt = (
-            "Tu es un expert en mobilier de bureau premium d'occasion.\n"
-            "Regarde cette image et identifie précisément le modèle de chaise ou fauteuil.\n"
-            f"Titre de l'annonce : {title[:120]}\n"
-            f"Description : {description[:200]}\n\n"
-            "Réponds UNIQUEMENT dans ce format JSON strict :\n"
-            '{\n'
-            '  \"model\": \"herman miller aeron\",  // nom complet en minuscules, ou null\n'
-            '  \"brand\": \"Herman Miller\",        // marque proprement capitalisée, ou null\n'
-            '  \"confidence\": 85,                 // 0-100, ta certitude\n'
-            '  \"details\": \"taille B, mesh noir, accoudoirs 4D\"  // indices visuels clés\n'
-            '}\n'
-            "Si ce n'est pas une chaise de bureau premium connue (herman miller, steelcase, vitra, humanscale, knoll, okamura, haworth, wilkhahn), "
-            "mets model=null et confidence<30."
-        )
 
         payload = {
-            'model': 'gpt-4o',
-            'max_tokens': 200,
-            'messages': [{
-                'role': 'user',
-                'content': [
-                    {'type': 'text', 'text': prompt},
-                    {'type': 'image_url',
-                     'image_url': {'url': f'data:{ct};base64,{img_b64}', 'detail': 'low'}}
+            'requests': [{
+                'image': {'content': img_b64},
+                'features': [
+                    {'type': 'LABEL_DETECTION', 'maxResults': 20},
+                    {'type': 'LOGO_DETECTION',  'maxResults': 5},
+                    {'type': 'TEXT_DETECTION',  'maxResults': 1},
                 ]
             }]
         }
+        api_url = f'https://vision.googleapis.com/v1/images:annotate?key={GOOGLE_VISION_KEY}'
+        resp = requests.post(api_url, json=payload, timeout=15)
+        if resp.status_code != 200:
+            return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
 
-        resp = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            json=payload,
-            headers={'Authorization': f'Bearer {OPENAI_API_KEY}',
-                     'Content-Type': 'application/json'},
-            timeout=20
-        )
-        resp.raise_for_status()
-        content = resp.json()['choices'][0]['message']['content'].strip()
+        data   = resp.json()
+        result = data.get('responses', [{}])[0]
 
-        # Parser le JSON retourné
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        if not json_match:
-            return {'model': None, 'brand': None, 'confidence': 0,
-                    'market_price': 0, 'vision_raw': content}
+        # Collecter tous les concepts détectés avec leur score
+        concepts = {}  # texte_lower → score
 
-        import json
-        data = json.loads(json_match.group())
-        model_name = (data.get('model') or '').strip().lower() or None
-        brand      = data.get('brand') or None
-        confidence = int(data.get('confidence', 0))
-        details    = data.get('details', '')
+        for lbl in result.get('labelAnnotations', []):
+            txt = lbl.get('description', '').lower()
+            concepts[txt] = max(concepts.get(txt, 0), lbl.get('score', 0))
 
-        # Chercher le prix dans le catalogue
-        market_price = 0
-        if model_name:
-            # Correspondance exacte
-            if model_name in PREMIUM_CHAIR_CATALOG:
-                market_price = PREMIUM_CHAIR_CATALOG[model_name]['market_price']
-            else:
-                # Correspondance partielle
-                for cat_key, cat_val in PREMIUM_CHAIR_CATALOG.items():
-                    if cat_key in model_name or model_name in cat_key:
-                        market_price = cat_val['market_price']
-                        break
+        for logo in result.get('logoAnnotations', []):
+            txt = logo.get('description', '').lower()
+            concepts[txt] = max(concepts.get(txt, 0), logo.get('score', 0.9))
+
+        # Texte OCR dans l'image (étiquettes, logo imprimé sur le dossier, etc.)
+        text_annots = result.get('textAnnotations', [])
+        if text_annots:
+            ocr_text = text_annots[0].get('description', '').lower()
+            words = re.findall(r'[a-z][a-z0-9\-]{2,14}', ocr_text)
+            for w in words:
+                if w not in concepts:
+                    concepts[w] = 0.6  # score OCR moyen
+
+        # Chercher le meilleur match dans VISION_LABEL_MAP
+        best_model = None
+        best_score = 0.0
+
+        for concept, score in concepts.items():
+            for trigger, catalog_key in VISION_LABEL_MAP.items():
+                if trigger in concept or concept in trigger:
+                    if score > best_score:
+                        best_score = score
+                        best_model = catalog_key
+
+        if not best_model:
+            return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
+
+        catalog_entry = PREMIUM_CHAIR_CATALOG.get(best_model, {})
+        brand         = catalog_entry.get('brand')
+        market_price  = catalog_entry.get('market_price', 0)
+        confidence    = int(min(best_score * 100, 100))
 
         return {
-            'model':        model_name,
+            'model':        best_model,
             'brand':        brand,
             'confidence':   confidence,
             'market_price': market_price,
-            'details':      details,
-            'vision_raw':   content,
         }
 
     except Exception as e:
-        print(f'[VisionFurniture] Erreur: {e}')
-        return {'model': None, 'brand': None, 'confidence': 0,
-                'market_price': 0, 'vision_raw': str(e)}
+        print(f'[VisionFurniture] {e}')
+        return {'model': None, 'brand': None, 'confidence': 0, 'market_price': 0}
 
 
 def analyze_chair_deal(item: dict, min_confidence: int = 60) -> dict | None:
     """
     Pipeline complet pour une annonce de chaise :
-      1. Vérifie que c'est bien une chaise de bureau
-      2. Lance l'analyse Vision sur la première image
-      3. Si modèle premium identifié avec assez de confiance → retourne les infos deal
-      4. Sinon → retourne None
+      1. Vérifie que c'est une chaise de bureau (mots-clés titre/desc)
+      2. Envoie la photo à Google Vision
+      3. Si modèle premium détecté avec confiance ≥ min_confidence → retourne le deal
+      4. Sinon → None
 
-    item doit contenir : title, price, img, desc (optionnel), link, platform, color
+    item : dict avec title, price, img, desc, link, platform, color
     """
     title = item.get('title', '')
     desc  = item.get('desc', '')
@@ -188,36 +201,34 @@ def analyze_chair_deal(item: dict, min_confidence: int = 60) -> dict | None:
     if not img or not price:
         return None
 
-    result = identify_chair_vision(img, title, desc)
+    result = identify_chair_google_vision(img)
 
     if not result['model'] or result['confidence'] < min_confidence:
         return None
     if result['market_price'] <= 0:
         return None
 
-    # Calculer la décote
-    ref = result['market_price']
+    ref      = result['market_price']
     disc_pct = round((ref - price) / ref * 100, 1)
     savings  = round(ref - price, 2)
 
-    if disc_pct < 20:  # Même une petite décote est intéressante si vendeur naïf
-        # On garde quand même si la confiance est très haute (>80) — vendeur non identifié
-        if result['confidence'] < 80:
-            return None
+    # Garder même une petite décote si confiance très haute (vendeur naïf)
+    if disc_pct < 20 and result['confidence'] < 80:
+        return None
 
     return {
         **item,
-        'detected_by':   'vision_ai',
-        'best':          result['model'],
-        'brand':         result['brand'],
-        'ref':           ref,
-        'cat':           'Mobilier bureau',
-        'pct':           disc_pct,
-        'score':         min(int(disc_pct * 1.2 + result['confidence'] * 0.3), 100),
-        'savings':       savings,
-        'is_lot':        False,
-        'objects':       [(result['model'], ref, 'Mobilier bureau', result['confidence'])],
-        'vision_details': result.get('details', ''),
+        'detected_by':       'vision_ai',
+        'best':              result['model'],
+        'brand':             result['brand'],
+        'ref':               ref,
+        'cat':               'Mobilier bureau',
+        'pct':               disc_pct,
+        'score':             min(int(disc_pct * 1.2 + result['confidence'] * 0.3), 100),
+        'savings':           savings,
+        'is_lot':            False,
+        'objects':           [(result['model'], ref, 'Mobilier bureau', result['confidence'])],
+        'vision_details':    result.get('details', ''),
         'vision_confidence': result['confidence'],
-        'vendor_unaware': True,  # Si le titre est générique + modèle détecté par vision → vendeur naïf
+        'vendor_unaware':    True,
     }
